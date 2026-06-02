@@ -17,18 +17,25 @@ function makeSpawn(code = 0, stdout = '', stderr = '') {
 }
 
 describe('build command', () => {
-  test('C1: invokes tsc --build', async () => {
+  test('C1: runs build script in each package dir in order', async () => {
     const { spawn, calls } = makeSpawn()
     await build({ cwd: FIX('valid'), spawn })
-    expect(calls).toHaveLength(1)
-    const { argv, cwd } = calls[0] as Call
-    expect(argv[0]).toMatch(/tsc$/)
-    expect(argv[1]).toBe('--build')
-    expect(cwd).toBe(FIX('valid'))
+    expect(calls).toHaveLength(3) // core, fs, cli
+    expect(calls[0]!.argv).toEqual(['bun', 'run', 'build'])
+    expect(calls[0]!.cwd).toBe(resolve(FIX('valid'), 'packages/core'))
+    expect(calls[1]!.cwd).toBe(resolve(FIX('valid'), 'packages/fs'))
+    expect(calls[2]!.cwd).toBe(resolve(FIX('valid'), 'packages/cli'))
+  })
+
+  test('C1b: node runtime uses npm run build', async () => {
+    const { spawn, calls } = makeSpawn()
+    await build({ cwd: FIX('node-runtime'), spawn })
+    expect(calls).toHaveLength(1) // node-runtime fixture has 1 package
+    expect(calls[0]!.argv).toEqual(['npm', 'run', 'build'])
   })
 
   test('C6: build throws on non-zero exit', async () => {
-    const { spawn } = makeSpawn(1, '', 'tsc error')
+    const { spawn } = makeSpawn(1, '', 'build error')
     await expect(build({ cwd: FIX('valid'), spawn })).rejects.toThrow()
   })
 })

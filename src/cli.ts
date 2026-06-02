@@ -12,10 +12,10 @@ Commands:
   release prepare       Prepare a release branch
   release candidate     Publish a release candidate
   release finalize      Finalize a release
-  build                 Run tsc --build
+  build                 Build each package (runs its build script in order)
   test                  Run tests (bun test or npm test based on runtime)
-  check                 Run biome check .
-  format                Run biome format --write .
+  check                 Lint with biome (bundled)
+  format                Format with biome (bundled)
 
 Options:
   -h, --help            Show this help

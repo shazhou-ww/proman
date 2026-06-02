@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
+import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { loadConfig } from '../config/index.ts'
 import { type SpawnFn, defaultSpawn } from '../utils/npm.ts'
@@ -35,7 +36,18 @@ async function runOrThrow(spawn: SpawnFn, argv: string[], cwd: string): Promise<
 export async function build(opts: DevCommandOptions): Promise<void> {
   const spawn = opts.spawn ?? defaultSpawn
   const cwd = resolve(opts.cwd)
-  await runOrThrow(spawn, [findBin('tsc'), '--build'], cwd)
+  const cfg = loadConfig(cwd)
+  const run = cfg.runtime === 'bun' ? 'bun' : 'npm'
+  // Build each package in declared order, each runs its own `build` script
+  for (const pkg of cfg.packages) {
+    const pkgDir = resolve(cwd, pkg.path)
+    const pkgJsonPath = join(pkgDir, 'package.json')
+    if (existsSync(pkgJsonPath)) {
+      const pkgJson = JSON.parse(readFileSync(pkgJsonPath, 'utf-8'))
+      if (!pkgJson.scripts?.build) continue // skip packages without build script
+    }
+    await runOrThrow(spawn, [run, 'run', 'build'], pkgDir)
+  }
 }
 
 export async function runTests(opts: DevCommandOptions): Promise<void> {
