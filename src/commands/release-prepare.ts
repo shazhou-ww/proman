@@ -37,7 +37,7 @@ async function hasPendingChangesets(cwd: string): Promise<boolean> {
 }
 
 async function readCurrentVersion(cwd: string): Promise<string> {
-  const cfg = await loadConfig(cwd)
+  const cfg = loadConfig(cwd)
   const first = cfg.packages[0]
   if (!first) {
     throw new Error('cannot read current version: no packages configured')
@@ -91,7 +91,7 @@ export async function releasePrepare(opts: ReleasePrepareOptions): Promise<void>
     if (await git.branchExists(releaseBranch)) {
       throw new Error(`branch ${releaseBranch} already exists`)
     }
-    const cfg = await loadConfig(cwd)
+    const cfg = loadConfig(cwd)
     await git.checkoutNewBranchFrom(releaseBranch, from)
     await applyWorkspaceRewrites(cwd, cfg.packages)
     await git.addAll()
@@ -125,7 +125,7 @@ export async function releasePrepare(opts: ReleasePrepareOptions): Promise<void>
     if (changesets.length === 0) {
       throw new Error('no pending changeset entries found in .changeset/ (use --force to skip)')
     }
-    const cfg = await loadConfig(cwd)
+    const cfg = loadConfig(cwd)
     const fixed = cfg.changeset?.fixed === true
     const bump = inferBump(changesets, fixed)
     if (bump === null) {
@@ -144,7 +144,7 @@ export async function releasePrepare(opts: ReleasePrepareOptions): Promise<void>
     throw new Error(`branch ${releaseBranch} already exists`)
   }
 
-  const cfg = await loadConfig(cwd)
+  const cfg = loadConfig(cwd)
 
   await git.checkoutNewBranch(releaseBranch)
   await applyWorkspaceRewrites(cwd, cfg.packages)

@@ -82,20 +82,19 @@ type FixtureOptions = {
 }
 
 async function setupFixture(tmp: string, opts: FixtureOptions = {}) {
-  const releaseEntries: string[] = []
-  if (opts.access) releaseEntries.push(`access: '${opts.access}'`)
-  if (opts.gitTagPrefix !== undefined) releaseEntries.push(`gitTagPrefix: '${opts.gitTagPrefix}'`)
-  const releaseBlock = releaseEntries.length ? `,\n  release: { ${releaseEntries.join(', ')} }` : ''
+  const releaseLines: string[] = []
+  if (opts.access) releaseLines.push(`  access: ${opts.access}`)
+  if (opts.gitTagPrefix !== undefined) releaseLines.push(`  gitTagPrefix: '${opts.gitTagPrefix}'`)
+  const releaseBlock = releaseLines.length ? `\nrelease:\n${releaseLines.join('\n')}` : ''
   await writeFile(
-    join(tmp, 'proman.config.ts'),
-    `export default {
-  name: 'test',
-  runtime: 'bun',
-  packages: [
-    { name: 'pkg-a', path: 'packages/a' },
-    { name: 'pkg-b', path: 'packages/b' },
-  ]${releaseBlock},
-}
+    join(tmp, 'proman.yaml'),
+    `name: test
+runtime: bun
+packages:
+  - name: pkg-a
+    path: packages/a
+  - name: pkg-b
+    path: packages/b${releaseBlock}
 `,
   )
   await mkdir(join(tmp, 'packages/a'), { recursive: true })

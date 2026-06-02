@@ -76,7 +76,7 @@ export async function releaseFinalize(opts: ReleaseFinalizeOptions = {}): Promis
     throw new Error('no rc commit found in git log (expected /release: v.*-rc\\.\\d+/)')
   }
 
-  const cfg = await loadConfig(cwd)
+  const cfg = loadConfig(cwd)
   const pkgNames = new Set(cfg.packages.map((p) => p.name))
 
   // Read changesets

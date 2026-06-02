@@ -46,7 +46,7 @@ export async function releaseCandidate(opts: ReleaseCandidateOptions = {}): Prom
     throw new Error('working tree must be clean')
   }
 
-  const cfg = await loadConfig(cwd)
+  const cfg = loadConfig(cwd)
   const firstPkg = cfg.packages[0]
   if (!firstPkg) throw new Error('config has no packages')
 
