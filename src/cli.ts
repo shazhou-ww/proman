@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { releaseCandidate } from './commands/release-candidate.ts'
 import { releasePrepare } from './commands/release-prepare.ts'
 
 const VERSION = '0.0.0'
@@ -23,6 +24,13 @@ export function parseReleasePrepareArgs(argv: string[]): { version: string; forc
   return { version, force }
 }
 
+export function parseReleaseCandidateArgs(argv: string[]): Record<string, never> {
+  for (const a of argv) {
+    throw new Error(`unknown flag: ${a}`)
+  }
+  return {}
+}
+
 async function main(argv: string[]): Promise<void> {
   const cmd = argv[0]
   if (cmd === '--version' || cmd === '-v') {
@@ -32,6 +40,11 @@ async function main(argv: string[]): Promise<void> {
   if (cmd === 'release' && argv[1] === 'prepare') {
     const { version, force } = parseReleasePrepareArgs(argv.slice(2))
     await releasePrepare({ version, force })
+    return
+  }
+  if (cmd === 'release' && argv[1] === 'candidate') {
+    parseReleaseCandidateArgs(argv.slice(2))
+    await releaseCandidate()
     return
   }
   console.log(`proman ${VERSION}`)
