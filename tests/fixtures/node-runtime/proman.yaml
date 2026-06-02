@@ -1,0 +1,5 @@
+name: "@test/node-runtime"
+runtime: node
+packages:
+  - name: "@test/a"
+    path: packages/a

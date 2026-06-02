@@ -80,6 +80,43 @@ describe('formatRcVersion', () => {
   })
 })
 
+describe('createNpmRunner format argv', () => {
+  function makeSpawn(code = 0) {
+    const calls: string[][] = []
+    const fn: SpawnFn = async (argv, _cwd) => {
+      calls.push(argv)
+      return { code, stdout: '', stderr: 'boom' }
+    }
+    return { spawn: fn, calls }
+  }
+
+  test('B1: bun runtime runs format via bun', async () => {
+    const { spawn, calls } = makeSpawn()
+    const runner = createNpmRunner('bun', '/root', spawn)
+    await runner.format()
+    expect(calls[0]).toEqual(['bun', 'run', 'format'])
+  })
+
+  test('B2: node runtime runs format via npm', async () => {
+    const { spawn, calls } = makeSpawn()
+    const runner = createNpmRunner('node', '/root', spawn)
+    await runner.format()
+    expect(calls[0]).toEqual(['npm', 'run', 'format'])
+  })
+
+  test('B3: format is a function', () => {
+    const { spawn } = makeSpawn()
+    const runner = createNpmRunner('bun', '/root', spawn)
+    expect(typeof runner.format).toBe('function')
+  })
+
+  test('B4: non-zero exit throws with argv', async () => {
+    const { spawn } = makeSpawn(1)
+    const runner = createNpmRunner('bun', '/root', spawn)
+    await expect(runner.format()).rejects.toThrow(/bun run format/)
+  })
+})
+
 describe('createNpmRunner publish argv', () => {
   function makeSpawn() {
     const calls: string[][] = []

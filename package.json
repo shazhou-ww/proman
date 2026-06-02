@@ -11,11 +11,11 @@
     "build": "bun build ./src/cli.ts --target=bun --outdir=dist"
   },
   "devDependencies": {
-    "@biomejs/biome": "^1.9.0",
-    "@types/bun": "latest",
-    "typescript": "^5.5.0"
+    "@types/bun": "latest"
   },
   "dependencies": {
+    "@biomejs/biome": "^1.9.0",
+    "typescript": "^5.5.0",
     "yaml": "^2.9.0"
   }
 }

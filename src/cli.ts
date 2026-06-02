@@ -1,9 +1,26 @@
 #!/usr/bin/env bun
+import { build, check, format, runTests } from './commands/dev.ts'
 import { releaseCandidate } from './commands/release-candidate.ts'
 import { releaseFinalize } from './commands/release-finalize.ts'
 import { releasePrepare } from './commands/release-prepare.ts'
 
 const VERSION = '0.0.0'
+
+const HELP_TEXT = `Usage: proman <command> [options]
+
+Commands:
+  release prepare       Prepare a release branch
+  release candidate     Publish a release candidate
+  release finalize      Finalize a release
+  build                 Run tsc --build
+  test                  Run tests (bun test or npm test based on runtime)
+  check                 Run biome check .
+  format                Run biome format --write .
+
+Options:
+  -h, --help            Show this help
+  -v, --version         Show version
+`
 
 export function parseReleasePrepareArgs(argv: string[]): {
   version: string | undefined
@@ -57,8 +74,18 @@ export function parseReleaseFinalizeArgs(argv: string[]): { force: boolean } {
   return { force }
 }
 
+function parseDevArgs(argv: string[]): void {
+  for (const a of argv) {
+    throw new Error(`unknown flag: ${a}`)
+  }
+}
+
 async function main(argv: string[]): Promise<void> {
   const cmd = argv[0]
+  if (cmd === undefined || cmd === '--help' || cmd === '-h') {
+    process.stdout.write(HELP_TEXT)
+    return
+  }
   if (cmd === '--version' || cmd === '-v') {
     console.log(VERSION)
     return
@@ -78,7 +105,27 @@ async function main(argv: string[]): Promise<void> {
     await releaseFinalize({ force })
     return
   }
-  console.log(`proman ${VERSION}`)
+  if (cmd === 'build') {
+    parseDevArgs(argv.slice(1))
+    await build({ cwd: process.cwd() })
+    return
+  }
+  if (cmd === 'test') {
+    parseDevArgs(argv.slice(1))
+    await runTests({ cwd: process.cwd() })
+    return
+  }
+  if (cmd === 'check') {
+    parseDevArgs(argv.slice(1))
+    await check({ cwd: process.cwd() })
+    return
+  }
+  if (cmd === 'format') {
+    parseDevArgs(argv.slice(1))
+    await format({ cwd: process.cwd() })
+    return
+  }
+  throw new Error(`unknown command: ${cmd}`)
 }
 
 if (import.meta.main) {
