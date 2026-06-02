@@ -6,6 +6,13 @@ export type GitOps = {
   addAll: () => Promise<void>
   commit: (msg: string, author?: string) => Promise<void>
   push: (branch: string) => Promise<void>
+  log: (range?: string) => Promise<string>
+  tag: (name: string, message?: string) => Promise<void>
+  pushTags: () => Promise<void>
+  checkout: (branch: string) => Promise<void>
+  merge: (branch: string, opts?: { noFf?: boolean; message?: string }) => Promise<void>
+  deleteBranchLocal: (name: string) => Promise<void>
+  deleteBranchRemote: (name: string) => Promise<void>
 }
 
 async function run(args: string[], cwd: string = process.cwd()): Promise<string> {
@@ -55,6 +62,34 @@ export function createGitOps(cwd: string = process.cwd()): GitOps {
     },
     push: async (branch) => {
       await run(['push', '-u', 'origin', branch], cwd)
+    },
+    log: async (range) => {
+      const args = ['log', '--pretty=%s']
+      if (range) args.push(range)
+      return await run(args, cwd)
+    },
+    tag: async (name, message) => {
+      const args = message ? ['tag', '-a', name, '-m', message] : ['tag', name]
+      await run(args, cwd)
+    },
+    pushTags: async () => {
+      await run(['push', '--tags'], cwd)
+    },
+    checkout: async (branch) => {
+      await run(['checkout', branch], cwd)
+    },
+    merge: async (branch, opts) => {
+      const args = ['merge']
+      if (opts?.noFf) args.push('--no-ff')
+      if (opts?.message) args.push('-m', opts.message)
+      args.push(branch)
+      await run(args, cwd)
+    },
+    deleteBranchLocal: async (name) => {
+      await run(['branch', '-d', name], cwd)
+    },
+    deleteBranchRemote: async (name) => {
+      await run(['push', 'origin', '--delete', name], cwd)
     },
   }
 }
