@@ -20,6 +20,8 @@ function makeGit(overrides: Partial<GitOps> = {}) {
     checkoutNewBranch: async (n) => {
       calls.push(`checkout ${n}`)
     },
+    checkoutNewBranchFrom: async () => {},
+    tagExists: async () => false,
     addAll: async () => {
       calls.push('add')
     },
