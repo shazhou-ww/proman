@@ -1,5 +1,6 @@
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { parse } from 'yaml'
 import type { PromanConfig, ReleaseConfig } from './types.ts'
 import { validateConfig } from './validate-config.ts'
 
@@ -18,23 +19,15 @@ function applyDefaults(config: PromanConfig): PromanConfig {
 }
 
 /**
- * Loads `proman.config.ts` from the given cwd (or `process.cwd()`).
- * Bun natively transpiles TypeScript via `await import`, satisfying
- * the dynamic-load requirement for the issue.
+ * Loads `proman.yaml` from the given cwd (or `process.cwd()`).
  */
-export async function loadConfig(cwd: string = process.cwd()): Promise<PromanConfig> {
-  const absPath = resolve(cwd, 'proman.config.ts')
+export function loadConfig(cwd: string = process.cwd()): PromanConfig {
+  const absPath = resolve(cwd, 'proman.yaml')
   if (!existsSync(absPath)) {
-    throw new Error(`proman.config.ts not found at ${absPath}`)
+    throw new Error(`proman.yaml not found at ${absPath}`)
   }
-
-  // Cache-bust so repeated loads in tests pick up different fixtures.
-  const url = `${absPath}?t=${Date.now()}-${Math.random()}`
-  const mod = (await import(url)) as { default?: unknown }
-  const raw = mod.default
-  if (raw === undefined) {
-    throw new Error(`Invalid proman config: ${absPath} has no default export`)
-  }
+  const text = readFileSync(absPath, 'utf8')
+  const raw = parse(text)
   const validated = validateConfig(raw)
   return applyDefaults(validated)
 }

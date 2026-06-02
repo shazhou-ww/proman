@@ -52,15 +52,14 @@ async function setupFixture(
 ) {
   const pkgVersion = opts.packageVersion ?? '0.2.0'
   await writeFile(
-    join(tmp, 'proman.config.ts'),
-    `export default {
-  name: 'test',
-  runtime: 'bun',
-  packages: [
-    { name: 'pkg-a', path: 'packages/a' },
-    { name: 'pkg-b', path: 'packages/b' },
-  ],
-}
+    join(tmp, 'proman.yaml'),
+    `name: test
+runtime: bun
+packages:
+  - name: pkg-a
+    path: packages/a
+  - name: pkg-b
+    path: packages/b
 `,
   )
   await mkdir(join(tmp, 'packages/a'), { recursive: true })

@@ -81,17 +81,16 @@ type FixtureOptions = {
 
 async function setupFixture(tmp: string, opts: FixtureOptions = {}) {
   const runtime = opts.runtime ?? 'bun'
-  const releaseBlock = opts.access ? `,\n  release: { access: '${opts.access}' }` : ''
+  const releaseBlock = opts.access ? `\nrelease:\n  access: ${opts.access}` : ''
   await writeFile(
-    join(tmp, 'proman.config.ts'),
-    `export default {
-  name: 'test',
-  runtime: '${runtime}',
-  packages: [
-    { name: 'pkg-a', path: 'packages/a' },
-    { name: 'pkg-b', path: 'packages/b' },
-  ]${releaseBlock},
-}
+    join(tmp, 'proman.yaml'),
+    `name: test
+runtime: ${runtime}
+packages:
+  - name: pkg-a
+    path: packages/a
+  - name: pkg-b
+    path: packages/b${releaseBlock}
 `,
   )
   await mkdir(join(tmp, 'packages/a'), { recursive: true })

@@ -1,0 +1,4 @@
+runtime: bun
+packages:
+  - name: my-pkg
+    path: .
