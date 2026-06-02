@@ -58,6 +58,9 @@ function makeNpm(overrides: Partial<NpmRunner> = {}) {
     check: async () => {
       calls.push('check')
     },
+    format: async () => {
+      calls.push('format')
+    },
     publish: async (dir, o) => {
       calls.push(`publish ${dir} tag=${o.tag}${o.access ? ` access=${o.access}` : ''}`)
     },

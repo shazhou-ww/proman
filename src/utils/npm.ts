@@ -10,6 +10,7 @@ export type NpmRunner = {
   build: () => Promise<void>
   test: () => Promise<void>
   check: () => Promise<void>
+  format: () => Promise<void>
   publish: (pkgDir: string, opts: PublishOptions) => Promise<void>
 }
 
@@ -100,6 +101,7 @@ export function createNpmRunner(
       )
     },
     check: runScript('check'),
+    format: runScript('format'),
     publish: async (pkgDir, opts) => {
       const args = [tool, 'publish', '--tag', opts.tag]
       if (opts.access) args.push('--access', opts.access)
