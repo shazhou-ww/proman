@@ -25,6 +25,13 @@ function makeGit(overrides: Partial<GitOps> = {}) {
     push: async (b) => {
       calls.push(`push ${b}`)
     },
+    log: async () => '',
+    tag: async () => {},
+    pushTags: async () => {},
+    checkout: async () => {},
+    merge: async () => {},
+    deleteBranchLocal: async () => {},
+    deleteBranchRemote: async () => {},
   }
   const merged = { ...base, ...overrides }
   return { git: merged as GitOps, calls, getAuthor: () => lastAuthor }
