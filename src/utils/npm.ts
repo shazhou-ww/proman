@@ -62,9 +62,12 @@ export type SpawnFn = (
 
 export const defaultSpawn: SpawnFn = async (argv, cwd) => {
   const proc = Bun.spawn(argv, { cwd, stdout: 'pipe', stderr: 'pipe' })
-  const code = await proc.exited
-  const stdout = await new Response(proc.stdout).text()
-  const stderr = await new Response(proc.stderr).text()
+  // Consume streams concurrently with exited to avoid pipe buffer deadlock
+  const [code, stdout, stderr] = await Promise.all([
+    proc.exited,
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+  ])
   return { code, stdout, stderr }
 }
 
