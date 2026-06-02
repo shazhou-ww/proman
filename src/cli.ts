@@ -5,9 +5,16 @@ import { releasePrepare } from './commands/release-prepare.ts'
 
 const VERSION = '0.0.0'
 
-export function parseReleasePrepareArgs(argv: string[]): { version: string; force: boolean } {
+export function parseReleasePrepareArgs(argv: string[]): {
+  version: string | undefined
+  force: boolean
+  from: string | undefined
+  patch: boolean
+} {
   let version: string | undefined
   let force = false
+  let from: string | undefined
+  let patch = false
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     if (a === '--version') {
@@ -15,14 +22,20 @@ export function parseReleasePrepareArgs(argv: string[]): { version: string; forc
       if (!v) throw new Error('--version requires a value')
       version = v
       i++
+    } else if (a === '--from') {
+      const v = argv[i + 1]
+      if (!v) throw new Error('--from requires a value')
+      from = v
+      i++
+    } else if (a === '--patch') {
+      patch = true
     } else if (a === '--force') {
       force = true
     } else {
       throw new Error(`unknown flag: ${a}`)
     }
   }
-  if (!version) throw new Error('--version is required')
-  return { version, force }
+  return { version, force, from, patch }
 }
 
 export function parseReleaseCandidateArgs(argv: string[]): Record<string, never> {
@@ -51,8 +64,8 @@ async function main(argv: string[]): Promise<void> {
     return
   }
   if (cmd === 'release' && argv[1] === 'prepare') {
-    const { version, force } = parseReleasePrepareArgs(argv.slice(2))
-    await releasePrepare({ version, force })
+    const { version, force, from, patch } = parseReleasePrepareArgs(argv.slice(2))
+    await releasePrepare({ version, force, from, patch })
     return
   }
   if (cmd === 'release' && argv[1] === 'candidate') {

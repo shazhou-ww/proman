@@ -3,6 +3,8 @@ export type GitOps = {
   isCleanTree: () => Promise<boolean>
   branchExists: (name: string) => Promise<boolean>
   checkoutNewBranch: (name: string) => Promise<void>
+  checkoutNewBranchFrom: (name: string, ref: string) => Promise<void>
+  tagExists: (tag: string) => Promise<boolean>
   addAll: () => Promise<void>
   commit: (msg: string, author?: string) => Promise<void>
   push: (branch: string) => Promise<void>
@@ -47,6 +49,18 @@ export function createGitOps(cwd: string = process.cwd()): GitOps {
     },
     checkoutNewBranch: async (name) => {
       await run(['checkout', '-b', name], cwd)
+    },
+    checkoutNewBranchFrom: async (name, ref) => {
+      await run(['checkout', '-b', name, ref], cwd)
+    },
+    tagExists: async (tag) => {
+      const proc = Bun.spawn(['git', 'rev-parse', '--verify', '-q', `refs/tags/${tag}`], {
+        cwd,
+        stdout: 'pipe',
+        stderr: 'pipe',
+      })
+      const code = await proc.exited
+      return code === 0
     },
     addAll: async () => {
       await run(['add', '-A'], cwd)
