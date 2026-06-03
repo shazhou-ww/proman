@@ -16,10 +16,7 @@ export type ReleaseConfig = {
   gitTagPrefix?: string
 }
 
-export type PackageManager = 'npm' | 'pnpm' | 'bun'
-
 export type PromanConfig = {
-  packageManager?: PackageManager
   packages: PackageEntry[]
   changeset?: ChangesetConfig
   release?: ReleaseConfig

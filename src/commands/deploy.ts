@@ -16,16 +16,14 @@ async function runOrThrow(spawn: SpawnFn, argv: string[], cwd: string): Promise<
   }
 }
 
-function execArgv(pm: string, bin: string, args: string[]): string[] {
-  if (pm === 'bun') return ['bunx', bin, ...args]
-  return [pm, 'exec', bin, ...args]
+function pnpmExec(bin: string, ...args: string[]): string[] {
+  return ['pnpm', 'exec', bin, ...args]
 }
 
 export async function deploy(opts: DeployCommandOptions): Promise<void> {
   const spawn = opts.spawn ?? defaultSpawn
   const cwd = resolve(opts.cwd)
   const cfg = loadConfig(cwd)
-  const pm = cfg.packageManager ?? 'npm'
 
   let targets = cfg.packages
   if (opts.pkg !== undefined) {
@@ -47,9 +45,9 @@ export async function deploy(opts: DeployCommandOptions): Promise<void> {
     const pkgDir = resolve(cwd, pkg.path)
     let argv: string[]
     if (pkg.type === 'webui') {
-      argv = execArgv(pm, 'wrangler', ['pages', 'deploy', 'dist'])
+      argv = pnpmExec('wrangler', 'pages', 'deploy', 'dist')
     } else if (pkg.type === 'api') {
-      argv = execArgv(pm, 'wrangler', ['deploy'])
+      argv = pnpmExec('wrangler', 'deploy')
     } else {
       continue
     }

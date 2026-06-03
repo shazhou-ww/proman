@@ -94,29 +94,29 @@ describe('build command', () => {
 })
 
 describe('test command', () => {
-  test('C2: invokes pnpm run test', async () => {
+  test('C2: invokes pnpm exec vitest run', async () => {
     const { spawn, calls } = makeSpawn()
     await runTests({ cwd: FIX('valid'), spawn })
     expect(calls).toHaveLength(1)
     const { argv, cwd } = calls[0] as Call
-    expect(argv).toEqual(['pnpm', 'run', 'test'])
+    expect(argv).toEqual(['pnpm', 'exec', 'vitest', 'run'])
     expect(cwd).toBe(FIX('valid'))
   })
 
-  test('C3: node-runtime invokes pnpm run test', async () => {
+  test('C3: node-runtime invokes pnpm exec vitest run', async () => {
     const { spawn, calls } = makeSpawn()
     await runTests({ cwd: FIX('node-runtime'), spawn })
     expect(calls).toHaveLength(1)
     const { argv } = calls[0] as Call
-    expect(argv).toEqual(['pnpm', 'run', 'test'])
+    expect(argv).toEqual(['pnpm', 'exec', 'vitest', 'run'])
   })
 
-  test('C3b: pnpm project invokes pnpm run test', async () => {
+  test('C3b: pnpm project invokes pnpm exec vitest run', async () => {
     const { spawn, calls } = makeSpawn()
     await runTests({ cwd: FIX('pnpm-project'), spawn })
     expect(calls).toHaveLength(1)
     const { argv } = calls[0] as Call
-    expect(argv).toEqual(['pnpm', 'run', 'test'])
+    expect(argv).toEqual(['pnpm', 'exec', 'vitest', 'run'])
   })
 
   test('C6: test throws on non-zero exit', async () => {
