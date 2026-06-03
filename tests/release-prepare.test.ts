@@ -188,15 +188,16 @@ describe('releasePrepare happy path', () => {
   })
 
   test('creates branch, rewrites workspaces, commits, pushes', async () => {
-    const bBefore = await readFile(join(tmp, 'packages/b/package.json'))
     const { git, calls } = makeGit()
     await releasePrepare({ version: '0.3.0', cwd: tmp, git })
 
     const aText = await readFile(join(tmp, 'packages/a/package.json'), 'utf8')
     const aParsed = JSON.parse(aText)
-    expect(aParsed.dependencies['pkg-b']).toBe('0.2.0')
-    const bAfter = await readFile(join(tmp, 'packages/b/package.json'))
-    expect(bAfter.equals(bBefore)).toBe(true)
+    expect(aParsed.version).toBe('0.3.0')
+    expect(aParsed.dependencies['pkg-b']).toBe('0.3.0')
+    const bText = await readFile(join(tmp, 'packages/b/package.json'), 'utf8')
+    const bParsed = JSON.parse(bText)
+    expect(bParsed.version).toBe('0.3.0')
     expect(calls).toEqual([
       'checkout release/0.3.0',
       'add',
@@ -329,7 +330,8 @@ describe('releasePrepare auto-infer', () => {
     const { git, calls, getAuthor } = makeGit()
     await releasePrepare({ cwd: tmp, git })
     const aText = await readFile(join(tmp, 'packages/a/package.json'), 'utf8')
-    expect(JSON.parse(aText).dependencies['pkg-b']).toBe('0.2.0')
+    expect(JSON.parse(aText).version).toBe('0.3.0')
+    expect(JSON.parse(aText).dependencies['pkg-b']).toBe('0.3.0')
     expect(calls).toEqual([
       'checkout release/0.3.0',
       'add',
