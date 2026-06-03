@@ -59,7 +59,7 @@ export async function publish(opts: PublishOptions = {}): Promise<void> {
   const now = opts.now ?? (() => new Date())
 
   const cfg = loadConfig(cwd)
-  const pm = cfg.packageManager ?? 'npm'
+  const pm = cfg.packageManager ?? 'pnpm'
 
   // Read version from first package
   const firstPkg = cfg.packages[0]

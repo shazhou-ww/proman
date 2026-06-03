@@ -24,7 +24,7 @@ export async function build(opts: DevCommandOptions): Promise<void> {
   const spawn = opts.spawn ?? defaultSpawn
   const cwd = resolve(opts.cwd)
   const cfg = loadConfig(cwd)
-  const pm = cfg.packageManager ?? 'npm'
+  const pm = cfg.packageManager ?? 'pnpm'
   for (const pkg of cfg.packages) {
     const pkgDir = resolve(cwd, pkg.path)
     // Clean output dir before build to prevent stale artifacts
@@ -50,8 +50,8 @@ export async function runTests(opts: DevCommandOptions): Promise<void> {
   const spawn = opts.spawn ?? defaultSpawn
   const cwd = resolve(opts.cwd)
   const cfg = loadConfig(cwd)
-  const pm = cfg.packageManager ?? 'npm'
-  const argv = pm === 'bun' ? ['bun', 'test'] : execArgv(pm, 'vitest', ['run'])
+  const pm = cfg.packageManager ?? 'pnpm'
+  const argv = execArgv(pm, 'vitest', ['run'])
   await runOrThrow(spawn, argv, cwd)
 }
 
@@ -59,7 +59,7 @@ export async function check(opts: DevCommandOptions): Promise<void> {
   const spawn = opts.spawn ?? defaultSpawn
   const cwd = resolve(opts.cwd)
   const cfg = loadConfig(cwd)
-  const pm = cfg.packageManager ?? 'npm'
+  const pm = cfg.packageManager ?? 'pnpm'
   await runOrThrow(spawn, execArgv(pm, 'biome', ['check', '.']), cwd)
 }
 
@@ -67,6 +67,6 @@ export async function format(opts: DevCommandOptions): Promise<void> {
   const spawn = opts.spawn ?? defaultSpawn
   const cwd = resolve(opts.cwd)
   const cfg = loadConfig(cwd)
-  const pm = cfg.packageManager ?? 'npm'
+  const pm = cfg.packageManager ?? 'pnpm'
   await runOrThrow(spawn, execArgv(pm, 'biome', ['format', '--write', '.']), cwd)
 }
