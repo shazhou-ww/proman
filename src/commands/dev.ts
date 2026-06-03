@@ -25,10 +25,14 @@ export async function build(opts: DevCommandOptions): Promise<void> {
   const cfg = loadConfig(cwd)
   for (const pkg of cfg.packages) {
     const pkgDir = resolve(cwd, pkg.path)
-    // Clean output dir before build to prevent stale artifacts
+    // Clean output dir + tsbuildinfo before build to prevent stale artifacts
     const outDir = join(pkgDir, 'dist')
     if (existsSync(outDir)) {
       rmSync(outDir, { recursive: true })
+    }
+    const buildInfo = join(pkgDir, 'tsconfig.tsbuildinfo')
+    if (existsSync(buildInfo)) {
+      rmSync(buildInfo)
     }
     let argv: string[]
     switch (pkg.type) {
