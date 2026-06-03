@@ -18,55 +18,74 @@ function makeSpawn(code = 0, stdout = '', stderr = '') {
   return { spawn: fn, calls }
 }
 
+/** Check that argv contains `pm exec bin` or `bunx bin` pattern */
+function expectExec(argv: string[], bin: string, args: string[]) {
+  // bun: ['bunx', bin, ...args]
+  // npm/pnpm: [pm, 'exec', bin, ...args]
+  const binIdx = argv.indexOf(bin)
+  expect(binIdx).toBeGreaterThanOrEqual(0)
+  for (let i = 0; i < args.length; i++) {
+    expect(argv[binIdx + 1 + i]).toBe(args[i])
+  }
+}
+
 describe('build command', () => {
-  test('C1: dispatches tsc --build per package in order (default lib)', async () => {
+  test('C1: dispatches tsc --build per package in order (bun runtime)', async () => {
     const { spawn, calls } = makeSpawn()
     await build({ cwd: FIX('valid'), spawn })
     expect(calls).toHaveLength(3) // core, fs, cli
     for (const c of calls) {
-      expect(c.argv[0]).toMatch(/tsc$/)
-      expect(c.argv[1]).toBe('--build')
+      expectExec(c.argv, 'tsc', ['--build'])
     }
     expect(calls[0]!.cwd).toBe(resolve(FIX('valid'), 'packages/core'))
     expect(calls[1]!.cwd).toBe(resolve(FIX('valid'), 'packages/fs'))
     expect(calls[2]!.cwd).toBe(resolve(FIX('valid'), 'packages/cli'))
   })
 
-  test('C1b: node-runtime fixture also dispatches tsc --build (default lib)', async () => {
+  test('C1b: node-runtime uses npm exec tsc --build', async () => {
     const { spawn, calls } = makeSpawn()
     await build({ cwd: FIX('node-runtime'), spawn })
     expect(calls).toHaveLength(1)
-    expect(calls[0]!.argv[0]).toMatch(/tsc$/)
-    expect(calls[0]!.argv[1]).toBe('--build')
+    expect(calls[0]!.argv).toEqual(['npm', 'exec', 'tsc', '--build'])
   })
 
-  test('C1c: typed fixture dispatches by type in declared order', async () => {
+  test('C1c: pnpm project uses pnpm exec tsc --build', async () => {
+    const { spawn, calls } = makeSpawn()
+    await build({ cwd: FIX('pnpm-project'), spawn })
+    expect(calls).toHaveLength(1)
+    expect(calls[0]!.argv).toEqual(['pnpm', 'exec', 'tsc', '--build'])
+  })
+
+  test('C1d: typed fixture dispatches by type in declared order', async () => {
     const { spawn, calls } = makeSpawn()
     await build({ cwd: FIX('typed'), spawn })
     expect(calls).toHaveLength(4)
     // lib: tsc --build
-    expect(calls[0]!.argv[0]).toMatch(/tsc$/)
-    expect(calls[0]!.argv[1]).toBe('--build')
+    expectExec(calls[0]!.argv, 'tsc', ['--build'])
     expect(calls[0]!.cwd).toBe(resolve(FIX('typed'), 'packages/core'))
     // cli: tsc --build
-    expect(calls[1]!.argv[0]).toMatch(/tsc$/)
-    expect(calls[1]!.argv[1]).toBe('--build')
+    expectExec(calls[1]!.argv, 'tsc', ['--build'])
     expect(calls[1]!.cwd).toBe(resolve(FIX('typed'), 'packages/mycli'))
     // webui: vite build
-    expect(calls[2]!.argv[0]).toMatch(/vite$/)
-    expect(calls[2]!.argv[1]).toBe('build')
+    expectExec(calls[2]!.argv, 'vite', ['build'])
     expect(calls[2]!.cwd).toBe(resolve(FIX('typed'), 'packages/dashboard'))
     // api: tsc --build
-    expect(calls[3]!.argv[0]).toMatch(/tsc$/)
-    expect(calls[3]!.argv[1]).toBe('--build')
+    expectExec(calls[3]!.argv, 'tsc', ['--build'])
     expect(calls[3]!.cwd).toBe(resolve(FIX('typed'), 'packages/api'))
   })
 
-  test('C-bin: webui uses findBin(vite)', async () => {
+  test('C-bin: webui uses pm exec vite', async () => {
     const { spawn, calls } = makeSpawn()
     await build({ cwd: FIX('webui-only'), spawn })
     expect(calls).toHaveLength(1)
-    expect(calls[0]!.argv[0]).toMatch(/vite$/)
+    expectExec(calls[0]!.argv, 'vite', ['build'])
+  })
+
+  test('C-bun: bun runtime uses bunx', async () => {
+    const { spawn, calls } = makeSpawn()
+    await build({ cwd: FIX('valid'), spawn })
+    // valid fixture has runtime: bun + bun.lockb → packageManager: bun → bunx
+    expect(calls[0]!.argv[0]).toBe('bunx')
   })
 
   test('C6: build throws on non-zero exit', async () => {
@@ -108,15 +127,25 @@ describe('test command', () => {
 })
 
 describe('check command', () => {
-  test('C4: invokes biome check .', async () => {
+  test('C4: npm project invokes npm exec biome check .', async () => {
+    const { spawn, calls } = makeSpawn()
+    await check({ cwd: FIX('node-runtime'), spawn })
+    expect(calls).toHaveLength(1)
+    expect(calls[0]!.argv).toEqual(['npm', 'exec', 'biome', 'check', '.'])
+  })
+
+  test('C4b: bun project invokes bunx biome check .', async () => {
     const { spawn, calls } = makeSpawn()
     await check({ cwd: FIX('valid'), spawn })
     expect(calls).toHaveLength(1)
-    const { argv, cwd } = calls[0] as Call
-    expect(argv[0]).toMatch(/biome$/)
-    expect(argv[1]).toBe('check')
-    expect(argv[2]).toBe('.')
-    expect(cwd).toBe(FIX('valid'))
+    expect(calls[0]!.argv).toEqual(['bunx', 'biome', 'check', '.'])
+  })
+
+  test('C4c: pnpm project invokes pnpm exec biome check .', async () => {
+    const { spawn, calls } = makeSpawn()
+    await check({ cwd: FIX('pnpm-project'), spawn })
+    expect(calls).toHaveLength(1)
+    expect(calls[0]!.argv).toEqual(['pnpm', 'exec', 'biome', 'check', '.'])
   })
 
   test('C6: check throws on non-zero exit', async () => {
@@ -126,16 +155,11 @@ describe('check command', () => {
 })
 
 describe('format command', () => {
-  test('C5: invokes biome format --write .', async () => {
+  test('C5: invokes pm exec biome format --write .', async () => {
     const { spawn, calls } = makeSpawn()
-    await format({ cwd: FIX('valid'), spawn })
+    await format({ cwd: FIX('node-runtime'), spawn })
     expect(calls).toHaveLength(1)
-    const { argv, cwd } = calls[0] as Call
-    expect(argv[0]).toMatch(/biome$/)
-    expect(argv[1]).toBe('format')
-    expect(argv[2]).toBe('--write')
-    expect(argv[3]).toBe('.')
-    expect(cwd).toBe(FIX('valid'))
+    expect(calls[0]!.argv).toEqual(['npm', 'exec', 'biome', 'format', '--write', '.'])
   })
 
   test('C6: format throws on non-zero exit', async () => {

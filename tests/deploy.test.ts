@@ -18,18 +18,17 @@ function makeSpawn(code = 0, stdout = '', stderr = '') {
   return { spawn: fn, calls }
 }
 
+// typed fixture: runtime bun, no lockfile → packageManager npm → npm exec
 describe('deploy command', () => {
   test('DEP1: typed fixture, no flags, deploys webui then api', async () => {
     const { spawn, calls } = makeSpawn()
     await deploy({ cwd: FIX('typed'), spawn })
     expect(calls).toHaveLength(2)
     // webui
-    expect(calls[0]!.argv[0]).toMatch(/wrangler$/)
-    expect(calls[0]!.argv.slice(1)).toEqual(['pages', 'deploy', 'dist'])
+    expect(calls[0]!.argv).toEqual(['npm', 'exec', 'wrangler', 'pages', 'deploy', 'dist'])
     expect(calls[0]!.cwd).toBe(resolve(FIX('typed'), 'packages/dashboard'))
     // api
-    expect(calls[1]!.argv[0]).toMatch(/wrangler$/)
-    expect(calls[1]!.argv.slice(1)).toEqual(['deploy'])
+    expect(calls[1]!.argv).toEqual(['npm', 'exec', 'wrangler', 'deploy'])
     expect(calls[1]!.cwd).toBe(resolve(FIX('typed'), 'packages/api'))
   })
 
@@ -37,15 +36,17 @@ describe('deploy command', () => {
     const { spawn, calls } = makeSpawn()
     await deploy({ cwd: FIX('typed'), spawn, env: 'staging' })
     expect(calls).toHaveLength(2)
-    expect(calls[0]!.argv.slice(1)).toEqual(['pages', 'deploy', 'dist', '--env', 'staging'])
-    expect(calls[1]!.argv.slice(1)).toEqual(['deploy', '--env', 'staging'])
+    expect(calls[0]!.argv).toEqual([
+      'npm', 'exec', 'wrangler', 'pages', 'deploy', 'dist', '--env', 'staging',
+    ])
+    expect(calls[1]!.argv).toEqual(['npm', 'exec', 'wrangler', 'deploy', '--env', 'staging'])
   })
 
   test('DEP3: --package selects only one webui', async () => {
     const { spawn, calls } = makeSpawn()
     await deploy({ cwd: FIX('typed'), spawn, pkg: '@myapp/dashboard' })
     expect(calls).toHaveLength(1)
-    expect(calls[0]!.argv.slice(1)).toEqual(['pages', 'deploy', 'dist'])
+    expect(calls[0]!.argv).toEqual(['npm', 'exec', 'wrangler', 'pages', 'deploy', 'dist'])
     expect(calls[0]!.cwd).toBe(resolve(FIX('typed'), 'packages/dashboard'))
   })
 
@@ -83,8 +84,9 @@ describe('deploy command', () => {
       env: 'production',
     })
     expect(calls).toHaveLength(1)
-    expect(calls[0]!.argv[0]).toMatch(/wrangler$/)
-    expect(calls[0]!.argv.slice(1)).toEqual(['deploy', '--env', 'production'])
+    expect(calls[0]!.argv).toEqual([
+      'npm', 'exec', 'wrangler', 'deploy', '--env', 'production',
+    ])
     expect(calls[0]!.cwd).toBe(resolve(FIX('typed'), 'packages/api'))
   })
 })

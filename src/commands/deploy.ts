@@ -1,7 +1,6 @@
 import { resolve } from 'node:path'
 import { loadConfig } from '../config/index.ts'
 import { type SpawnFn, defaultSpawn } from '../utils/npm.ts'
-import { findBin } from './dev.ts'
 
 export type DeployCommandOptions = {
   cwd: string
@@ -17,10 +16,16 @@ async function runOrThrow(spawn: SpawnFn, argv: string[], cwd: string): Promise<
   }
 }
 
+function execArgv(pm: string, bin: string, args: string[]): string[] {
+  if (pm === 'bun') return ['bunx', bin, ...args]
+  return [pm, 'exec', bin, ...args]
+}
+
 export async function deploy(opts: DeployCommandOptions): Promise<void> {
   const spawn = opts.spawn ?? defaultSpawn
   const cwd = resolve(opts.cwd)
   const cfg = loadConfig(cwd)
+  const pm = cfg.packageManager ?? 'npm'
 
   let targets = cfg.packages
   if (opts.pkg !== undefined) {
@@ -42,9 +47,9 @@ export async function deploy(opts: DeployCommandOptions): Promise<void> {
     const pkgDir = resolve(cwd, pkg.path)
     let argv: string[]
     if (pkg.type === 'webui') {
-      argv = [findBin('wrangler'), 'pages', 'deploy', 'dist']
+      argv = execArgv(pm, 'wrangler', ['pages', 'deploy', 'dist'])
     } else if (pkg.type === 'api') {
-      argv = [findBin('wrangler'), 'deploy']
+      argv = execArgv(pm, 'wrangler', ['deploy'])
     } else {
       continue
     }
