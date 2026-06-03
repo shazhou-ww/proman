@@ -90,14 +90,14 @@ describe('createNpmRunner format argv', () => {
     return { spawn: fn, calls }
   }
 
-  test('B1: bun runtime runs format via bun', async () => {
+  test('B1: bun packageManager runs format via bun', async () => {
     const { spawn, calls } = makeSpawn()
     const runner = createNpmRunner('bun', '/root', spawn)
     await runner.format()
     expect(calls[0]).toEqual(['bun', 'run', 'format'])
   })
 
-  test('B2: node runtime runs format via npm', async () => {
+  test('B2: npm packageManager runs format via npm', async () => {
     const { spawn, calls } = makeSpawn()
     const runner = createNpmRunner('npm', '/root', spawn)
     await runner.format()
@@ -127,7 +127,7 @@ describe('createNpmRunner publish argv', () => {
     return { spawn: fn, calls }
   }
 
-  test('bun runtime publishes via bun', async () => {
+  test('bun packageManager publishes via bun', async () => {
     const { spawn, calls } = makeSpawn()
     const runner = createNpmRunner('bun', '/root', spawn)
     await runner.publish('/root/packages/a', { tag: 'rc' })
@@ -138,7 +138,7 @@ describe('createNpmRunner publish argv', () => {
     expect(last).toContain('rc')
   })
 
-  test('node runtime publishes via npm', async () => {
+  test('npm packageManager publishes via npm', async () => {
     const { spawn, calls } = makeSpawn()
     const runner = createNpmRunner('npm', '/root', spawn)
     await runner.publish('/root/packages/a', { tag: 'rc' })

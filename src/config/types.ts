@@ -19,8 +19,6 @@ export type ReleaseConfig = {
 export type PackageManager = 'npm' | 'pnpm' | 'bun'
 
 export type PromanConfig = {
-  name: string
-  runtime: 'bun' | 'node'
   packageManager?: PackageManager
   packages: PackageEntry[]
   changeset?: ChangesetConfig

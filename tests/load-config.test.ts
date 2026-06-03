@@ -9,10 +9,9 @@ const FIX = (name: string) => resolve(__dirname, 'fixtures', name)
 describe('loadConfig', () => {
   test('happy path — loads issue example fixture', () => {
     const cfg = loadConfig(FIX('valid'))
-    expect(cfg.name).toBe('@ocas/workspace')
-    expect(cfg.runtime).toBe('bun')
     expect(cfg.packages).toHaveLength(3)
     expect(cfg.packages.map((p) => p.name)).toEqual(['@ocas/core', '@ocas/fs', '@ocas/cli'])
+    expect(cfg.packageManager).toBe('pnpm')
     expect(cfg.changeset?.fixed).toBe(true)
     expect(cfg.release?.registry).toBe('https://registry.npmjs.org')
     expect(cfg.release?.access).toBe('public')
@@ -21,6 +20,7 @@ describe('loadConfig', () => {
 
   test('applies registry + gitTagPrefix defaults when release omitted', () => {
     const cfg = loadConfig(FIX('defaults'))
+    expect(cfg.packageManager).toBe('pnpm')
     expect(cfg.release?.registry).toBe('https://registry.npmjs.org')
     expect(cfg.release?.gitTagPrefix).toBe('v')
     expect(cfg.release?.access).toBeUndefined()
@@ -30,14 +30,6 @@ describe('loadConfig', () => {
     expect(() => loadConfig(resolve(__dirname, 'fixtures', 'no-such-dir'))).toThrow(
       /proman\.yaml not found/,
     )
-  })
-
-  test('rejects invalid runtime', () => {
-    expect(() => loadConfig(FIX('bad-runtime'))).toThrow(/runtime/i)
-  })
-
-  test('rejects missing name', () => {
-    expect(() => loadConfig(FIX('missing-name'))).toThrow(/name/i)
   })
 
   test('rejects empty packages', () => {

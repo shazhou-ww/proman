@@ -24,7 +24,7 @@ async function setupFixture(tmp: string, opts: FixtureOptions = {}) {
   const { stringify } = await import('yaml')
   await writeFile(
     join(tmp, 'proman.yaml'),
-    stringify({ name: 'test-project', runtime: 'node', packages }),
+    stringify({ packages }),
   )
 
   for (const pkg of packages) {

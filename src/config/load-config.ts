@@ -1,19 +1,13 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { parse } from 'yaml'
-import type { PackageManager, PromanConfig, ReleaseConfig } from './types.ts'
+import type { PromanConfig, ReleaseConfig } from './types.ts'
 import { validateConfig } from './validate-config.ts'
 
 const DEFAULT_REGISTRY = 'https://registry.npmjs.org'
 const DEFAULT_GIT_TAG_PREFIX = 'v'
 
-function detectPackageManager(cwd: string): PackageManager {
-  if (existsSync(resolve(cwd, 'pnpm-lock.yaml'))) return 'pnpm'
-  if (existsSync(resolve(cwd, 'bun.lockb')) || existsSync(resolve(cwd, 'bun.lock'))) return 'bun'
-  return 'npm'
-}
-
-function applyDefaults(config: PromanConfig, cwd: string): PromanConfig {
+function applyDefaults(config: PromanConfig): PromanConfig {
   const release: ReleaseConfig = {
     registry: config.release?.registry ?? DEFAULT_REGISTRY,
     gitTagPrefix: config.release?.gitTagPrefix ?? DEFAULT_GIT_TAG_PREFIX,
@@ -21,7 +15,7 @@ function applyDefaults(config: PromanConfig, cwd: string): PromanConfig {
   if (config.release?.access !== undefined) {
     release.access = config.release.access
   }
-  const packageManager = config.packageManager ?? detectPackageManager(cwd)
+  const packageManager = config.packageManager ?? 'pnpm'
   return { ...config, packageManager, release }
 }
 
@@ -36,5 +30,5 @@ export function loadConfig(cwd: string = process.cwd()): PromanConfig {
   const text = readFileSync(absPath, 'utf8')
   const raw = parse(text)
   const validated = validateConfig(raw)
-  return applyDefaults(validated, cwd)
+  return applyDefaults(validated)
 }

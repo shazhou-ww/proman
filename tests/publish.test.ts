@@ -86,8 +86,6 @@ async function setupFixture(tmp: string, opts: FixtureOptions = {}) {
     : [{ name: '@test/core', path: 'packages/core', type: 'lib' }]
 
   const config: Record<string, unknown> = {
-    name: 'test-project',
-    runtime: 'node',
     packages,
   }
   if (opts.access || opts.gitTagPrefix) {

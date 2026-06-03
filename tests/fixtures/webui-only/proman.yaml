@@ -1,5 +1,3 @@
-name: "@myapp/webui-only"
-runtime: bun
 packages:
   - name: "@myapp/dashboard"
     path: packages/dashboard

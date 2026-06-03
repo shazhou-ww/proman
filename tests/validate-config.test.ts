@@ -2,16 +2,12 @@ import { describe, expect, test } from 'vitest'
 import { validateConfig } from '../src/config/index.ts'
 
 const minimal = {
-  name: '@x/workspace',
-  runtime: 'bun' as const,
   packages: [{ name: '@x/a', path: 'packages/a' }],
 }
 
 describe('validateConfig', () => {
   test('accepts minimal valid config', () => {
     const r = validateConfig(minimal)
-    expect(r.name).toBe('@x/workspace')
-    expect(r.runtime).toBe('bun')
     expect(r.packages).toHaveLength(1)
   })
 
@@ -19,10 +15,6 @@ describe('validateConfig', () => {
     expect(() => validateConfig(null)).toThrow(/object/i)
     expect(() => validateConfig(undefined)).toThrow(/object/i)
     expect(() => validateConfig(42)).toThrow(/object/i)
-  })
-
-  test('rejects unknown runtime literal', () => {
-    expect(() => validateConfig({ ...minimal, runtime: 'deno' })).toThrow(/runtime/i)
   })
 
   test('rejects non-boolean changeset.fixed', () => {

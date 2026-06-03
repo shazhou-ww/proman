@@ -1,9 +1,7 @@
-name: "@myapp/no-deployable"
-runtime: bun
 packages:
   - name: "@myapp/core"
     path: packages/core
     type: lib
   - name: "@myapp/cli"
-    path: packages/mycli
+    path: packages/cli
     type: cli

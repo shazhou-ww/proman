@@ -39,15 +39,7 @@ export function validateConfig(value: unknown): PromanConfig {
     throw new Error(`${ERR_PREFIX} config must be an object`)
   }
 
-  const { name, runtime, packageManager, packages, changeset, release } = value
-
-  if (typeof name !== 'string' || name.length === 0) {
-    throw new Error(`${ERR_PREFIX} name must be a non-empty string`)
-  }
-
-  if (runtime !== 'bun' && runtime !== 'node') {
-    throw new Error(`${ERR_PREFIX} runtime must be one of 'bun' | 'node'`)
-  }
+  const { packageManager, packages, changeset, release } = value
 
   if (
     packageManager !== undefined &&
@@ -97,8 +89,6 @@ export function validateConfig(value: unknown): PromanConfig {
   }
 
   const result: PromanConfig = {
-    name,
-    runtime,
     packages: validatedPackages,
   }
   if (packageManager !== undefined)
