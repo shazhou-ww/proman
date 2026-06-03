@@ -39,4 +39,37 @@ describe('validateConfig', () => {
       }),
     ).toThrow(/release\.access/)
   })
+
+  test('T1: accepts each package type', () => {
+    for (const t of ['lib', 'cli', 'webui', 'api'] as const) {
+      const r = validateConfig({
+        ...minimal,
+        packages: [{ name: '@x/a', path: 'packages/a', type: t }],
+      })
+      expect(r.packages[0]?.type).toBe(t)
+    }
+  })
+
+  test('T2: defaults type to lib when omitted', () => {
+    const r = validateConfig(minimal)
+    expect(r.packages[0]?.type).toBe('lib')
+  })
+
+  test('T3: rejects unknown type string', () => {
+    expect(() =>
+      validateConfig({
+        ...minimal,
+        packages: [{ name: '@x/a', path: 'packages/a', type: 'frontend' }],
+      }),
+    ).toThrow(/packages\[0\]\.type/)
+  })
+
+  test('T4: rejects non-string type', () => {
+    expect(() =>
+      validateConfig({
+        ...minimal,
+        packages: [{ name: '@x/a', path: 'packages/a', type: 1 as unknown as string }],
+      }),
+    ).toThrow(/packages\[0\]\.type/)
+  })
 })

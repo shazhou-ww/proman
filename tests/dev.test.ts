@@ -17,21 +17,54 @@ function makeSpawn(code = 0, stdout = '', stderr = '') {
 }
 
 describe('build command', () => {
-  test('C1: runs build script in each package dir in order', async () => {
+  test('C1: dispatches tsc --build per package in order (default lib)', async () => {
     const { spawn, calls } = makeSpawn()
     await build({ cwd: FIX('valid'), spawn })
     expect(calls).toHaveLength(3) // core, fs, cli
-    expect(calls[0]!.argv).toEqual(['bun', 'run', 'build'])
+    for (const c of calls) {
+      expect(c.argv[0]).toMatch(/tsc$/)
+      expect(c.argv[1]).toBe('--build')
+    }
     expect(calls[0]!.cwd).toBe(resolve(FIX('valid'), 'packages/core'))
     expect(calls[1]!.cwd).toBe(resolve(FIX('valid'), 'packages/fs'))
     expect(calls[2]!.cwd).toBe(resolve(FIX('valid'), 'packages/cli'))
   })
 
-  test('C1b: node runtime uses npm run build', async () => {
+  test('C1b: node-runtime fixture also dispatches tsc --build (default lib)', async () => {
     const { spawn, calls } = makeSpawn()
     await build({ cwd: FIX('node-runtime'), spawn })
-    expect(calls).toHaveLength(1) // node-runtime fixture has 1 package
-    expect(calls[0]!.argv).toEqual(['npm', 'run', 'build'])
+    expect(calls).toHaveLength(1)
+    expect(calls[0]!.argv[0]).toMatch(/tsc$/)
+    expect(calls[0]!.argv[1]).toBe('--build')
+  })
+
+  test('C1c: typed fixture dispatches by type in declared order', async () => {
+    const { spawn, calls } = makeSpawn()
+    await build({ cwd: FIX('typed'), spawn })
+    expect(calls).toHaveLength(4)
+    // lib: tsc --build
+    expect(calls[0]!.argv[0]).toMatch(/tsc$/)
+    expect(calls[0]!.argv[1]).toBe('--build')
+    expect(calls[0]!.cwd).toBe(resolve(FIX('typed'), 'packages/core'))
+    // cli: tsc --build
+    expect(calls[1]!.argv[0]).toMatch(/tsc$/)
+    expect(calls[1]!.argv[1]).toBe('--build')
+    expect(calls[1]!.cwd).toBe(resolve(FIX('typed'), 'packages/mycli'))
+    // webui: vite build
+    expect(calls[2]!.argv[0]).toMatch(/vite$/)
+    expect(calls[2]!.argv[1]).toBe('build')
+    expect(calls[2]!.cwd).toBe(resolve(FIX('typed'), 'packages/dashboard'))
+    // api: tsc --build
+    expect(calls[3]!.argv[0]).toMatch(/tsc$/)
+    expect(calls[3]!.argv[1]).toBe('--build')
+    expect(calls[3]!.cwd).toBe(resolve(FIX('typed'), 'packages/api'))
+  })
+
+  test('C-bin: webui uses findBin(vite)', async () => {
+    const { spawn, calls } = makeSpawn()
+    await build({ cwd: FIX('webui-only'), spawn })
+    expect(calls).toHaveLength(1)
+    expect(calls[0]!.argv[0]).toMatch(/vite$/)
   })
 
   test('C6: build throws on non-zero exit', async () => {

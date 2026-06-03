@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 import { build, check, format, runTests } from './commands/dev.ts'
+import { deploy } from './commands/deploy.ts'
 import { releaseCandidate } from './commands/release-candidate.ts'
 import { releaseFinalize } from './commands/release-finalize.ts'
 import { releasePrepare } from './commands/release-prepare.ts'
@@ -12,7 +13,8 @@ Commands:
   release prepare       Prepare a release branch
   release candidate     Publish a release candidate
   release finalize      Finalize a release
-  build                 Build each package (runs its build script in order)
+  build                 Build each package by type (tsc/vite)
+  deploy                Deploy webui/api packages (wrangler)
   test                  Run tests (bun test or npm test based on runtime)
   check                 Lint with biome (bundled)
   format                Format with biome (bundled)
@@ -80,6 +82,28 @@ function parseDevArgs(argv: string[]): void {
   }
 }
 
+export function parseDeployArgs(argv: string[]): { pkg?: string; env?: string } {
+  let pkg: string | undefined
+  let env: string | undefined
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i]
+    if (a === '--package') {
+      const v = argv[i + 1]
+      if (v === undefined) throw new Error('--package requires a value')
+      pkg = v
+      i++
+    } else if (a === '--env') {
+      const v = argv[i + 1]
+      if (v === undefined) throw new Error('--env requires a value')
+      env = v
+      i++
+    } else {
+      throw new Error(`unknown flag: ${a}`)
+    }
+  }
+  return { pkg, env }
+}
+
 async function main(argv: string[]): Promise<void> {
   const cmd = argv[0]
   if (cmd === undefined || cmd === '--help' || cmd === '-h') {
@@ -108,6 +132,11 @@ async function main(argv: string[]): Promise<void> {
   if (cmd === 'build') {
     parseDevArgs(argv.slice(1))
     await build({ cwd: process.cwd() })
+    return
+  }
+  if (cmd === 'deploy') {
+    const { pkg, env } = parseDeployArgs(argv.slice(1))
+    await deploy({ cwd: process.cwd(), pkg, env })
     return
   }
   if (cmd === 'test') {

@@ -1,0 +1,6 @@
+name: "@myapp/api-only"
+runtime: bun
+packages:
+  - name: "@myapp/api"
+    path: packages/api
+    type: api

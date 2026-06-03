@@ -41,4 +41,11 @@ describe('loadConfig', () => {
   test('rejects empty packages', () => {
     expect(() => loadConfig(FIX('bad-packages'))).toThrow(/packages/i)
   })
+
+  test('T5: defaults each package type to lib when omitted', () => {
+    const cfg = loadConfig(FIX('valid'))
+    for (const p of cfg.packages) {
+      expect(p.type).toBe('lib')
+    }
+  })
 })

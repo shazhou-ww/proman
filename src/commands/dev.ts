@@ -1,6 +1,5 @@
 import { existsSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
-import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { loadConfig } from '../config/index.ts'
 import { type SpawnFn, defaultSpawn } from '../utils/npm.ts'
@@ -12,7 +11,7 @@ export type DevCommandOptions = {
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 
-function findBin(name: string): string {
+export function findBin(name: string): string {
   // Walk up from this file looking for node_modules/.bin/<name>
   let dir = HERE
   for (let i = 0; i < 8; i++) {
@@ -37,16 +36,19 @@ export async function build(opts: DevCommandOptions): Promise<void> {
   const spawn = opts.spawn ?? defaultSpawn
   const cwd = resolve(opts.cwd)
   const cfg = loadConfig(cwd)
-  const run = cfg.runtime === 'bun' ? 'bun' : 'npm'
-  // Build each package in declared order, each runs its own `build` script
   for (const pkg of cfg.packages) {
     const pkgDir = resolve(cwd, pkg.path)
-    const pkgJsonPath = join(pkgDir, 'package.json')
-    if (existsSync(pkgJsonPath)) {
-      const pkgJson = JSON.parse(readFileSync(pkgJsonPath, 'utf-8'))
-      if (!pkgJson.scripts?.build) continue // skip packages without build script
+    let argv: string[]
+    switch (pkg.type) {
+      case 'webui':
+        argv = [findBin('vite'), 'build']
+        break
+      default:
+        // lib | cli | api → tsc --build
+        argv = [findBin('tsc'), '--build']
+        break
     }
-    await runOrThrow(spawn, [run, 'run', 'build'], pkgDir)
+    await runOrThrow(spawn, argv, pkgDir)
   }
 }
 
