@@ -1,0 +1,5 @@
+name: "@test/pnpm-project"
+runtime: node
+packages:
+  - name: "@test/a"
+    path: packages/a

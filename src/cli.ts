@@ -1,21 +1,17 @@
 #!/usr/bin/env node
 import { build, check, format, runTests } from './commands/dev.ts'
 import { deploy } from './commands/deploy.ts'
-import { releaseCandidate } from './commands/release-candidate.ts'
-import { releaseFinalize } from './commands/release-finalize.ts'
-import { releasePrepare } from './commands/release-prepare.ts'
+import { release } from './commands/release.ts'
 
-const VERSION = '0.2.0'
+const VERSION = '0.3.0'
 
 const HELP_TEXT = `Usage: proman <command> [options]
 
 Commands:
-  release prepare       Prepare a release branch
-  release candidate     Publish a release candidate
-  release finalize      Finalize a release
+  release               Publish a release (bump, build, test, publish, tag)
   build                 Build each package by type (tsc/vite)
   deploy                Deploy webui/api packages (wrangler)
-  test                  Run tests (bun test or npm test based on runtime)
+  test                  Run tests
   check                 Lint with biome (bundled)
   format                Format with biome (bundled)
 
@@ -24,16 +20,16 @@ Options:
   -v, --version         Show version
 `
 
-export function parseReleasePrepareArgs(argv: string[]): {
+export function parseReleaseArgs(argv: string[]): {
   version: string | undefined
+  bump: 'major' | 'minor' | 'patch' | undefined
   force: boolean
-  from: string | undefined
-  patch: boolean
+  skipTests: boolean
 } {
   let version: string | undefined
+  let bump: 'major' | 'minor' | 'patch' | undefined
   let force = false
-  let from: string | undefined
-  let patch = false
+  let skipTests = false
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     if (a === '--version') {
@@ -41,45 +37,25 @@ export function parseReleasePrepareArgs(argv: string[]): {
       if (!v) throw new Error('--version requires a value')
       version = v
       i++
-    } else if (a === '--from') {
+    } else if (a === '--bump') {
       const v = argv[i + 1]
-      if (!v) throw new Error('--from requires a value')
-      from = v
+      if (v !== 'major' && v !== 'minor' && v !== 'patch') {
+        throw new Error('--bump must be major, minor, or patch')
+      }
+      bump = v
       i++
-    } else if (a === '--patch') {
-      patch = true
     } else if (a === '--force') {
       force = true
+    } else if (a === '--skip-tests') {
+      skipTests = true
     } else {
       throw new Error(`unknown flag: ${a}`)
     }
   }
-  return { version, force, from, patch }
-}
-
-export function parseReleaseCandidateArgs(argv: string[]): Record<string, never> {
-  for (const a of argv) {
-    throw new Error(`unknown flag: ${a}`)
+  if (version && bump) {
+    throw new Error('--version and --bump are mutually exclusive')
   }
-  return {}
-}
-
-export function parseReleaseFinalizeArgs(argv: string[]): { force: boolean } {
-  let force = false
-  for (const a of argv) {
-    if (a === '--force') {
-      force = true
-    } else {
-      throw new Error(`unknown flag: ${a}`)
-    }
-  }
-  return { force }
-}
-
-function parseDevArgs(argv: string[]): void {
-  for (const a of argv) {
-    throw new Error(`unknown flag: ${a}`)
-  }
+  return { version, bump, force, skipTests }
 }
 
 export function parseDeployArgs(argv: string[]): { pkg?: string; env?: string } {
@@ -104,6 +80,12 @@ export function parseDeployArgs(argv: string[]): { pkg?: string; env?: string } 
   return { pkg, env }
 }
 
+function parseDevArgs(argv: string[]): void {
+  for (const a of argv) {
+    throw new Error(`unknown flag: ${a}`)
+  }
+}
+
 async function main(argv: string[]): Promise<void> {
   const cmd = argv[0]
   if (cmd === undefined || cmd === '--help' || cmd === '-h') {
@@ -114,19 +96,9 @@ async function main(argv: string[]): Promise<void> {
     console.log(VERSION)
     return
   }
-  if (cmd === 'release' && argv[1] === 'prepare') {
-    const { version, force, from, patch } = parseReleasePrepareArgs(argv.slice(2))
-    await releasePrepare({ version, force, from, patch })
-    return
-  }
-  if (cmd === 'release' && argv[1] === 'candidate') {
-    parseReleaseCandidateArgs(argv.slice(2))
-    await releaseCandidate()
-    return
-  }
-  if (cmd === 'release' && argv[1] === 'finalize') {
-    const { force } = parseReleaseFinalizeArgs(argv.slice(2))
-    await releaseFinalize({ force })
+  if (cmd === 'release') {
+    const { version, bump, force, skipTests } = parseReleaseArgs(argv.slice(1))
+    await release({ version, bump, force, skipTests })
     return
   }
   if (cmd === 'build') {

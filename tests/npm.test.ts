@@ -99,7 +99,7 @@ describe('createNpmRunner format argv', () => {
 
   test('B2: node runtime runs format via npm', async () => {
     const { spawn, calls } = makeSpawn()
-    const runner = createNpmRunner('node', '/root', spawn)
+    const runner = createNpmRunner('npm', '/root', spawn)
     await runner.format()
     expect(calls[0]).toEqual(['npm', 'run', 'format'])
   })
@@ -140,11 +140,21 @@ describe('createNpmRunner publish argv', () => {
 
   test('node runtime publishes via npm', async () => {
     const { spawn, calls } = makeSpawn()
-    const runner = createNpmRunner('node', '/root', spawn)
+    const runner = createNpmRunner('npm', '/root', spawn)
     await runner.publish('/root/packages/a', { tag: 'rc' })
     const last = calls[calls.length - 1] as string[]
     expect(last[0]).toBe('npm')
     expect(last[1]).toBe('publish')
+  })
+
+  test('pnpm packageManager publishes via pnpm with --no-git-checks', async () => {
+    const { spawn, calls } = makeSpawn()
+    const runner = createNpmRunner('pnpm', '/root', spawn)
+    await runner.publish('/root/packages/a', { tag: 'rc' })
+    const last = calls[calls.length - 1] as string[]
+    expect(last[0]).toBe('pnpm')
+    expect(last[1]).toBe('publish')
+    expect(last).toContain('--no-git-checks')
   })
 
   test('passes --access public', async () => {
