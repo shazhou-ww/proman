@@ -74,10 +74,13 @@ export async function publish(opts: PublishOptions = {}): Promise<void> {
   // Build + test + check
   await npm.install()
   await npm.build()
+  console.log('✓ build')
   if (!skipTests) {
     await npm.test()
+    console.log('✓ test')
   }
   await npm.check()
+  console.log('✓ check')
 
   // Publish each package
   const access = cfg.release?.access
@@ -86,6 +89,7 @@ export async function publish(opts: PublishOptions = {}): Promise<void> {
     const pkgDir = resolve(cwd, entry.path)
     try {
       await npm.publish(pkgDir, { tag: publishTag, ...(access ? { access } : {}) })
+      console.log(`✓ published ${entry.name}@${version}`)
     } catch (err) {
       const published = cfg.packages.slice(0, i).map((p) => p.name)
       const remaining = cfg.packages.slice(i + 1).map((p) => p.name)
@@ -146,4 +150,6 @@ export async function publish(opts: PublishOptions = {}): Promise<void> {
   await git.tag(tagName, `Release ${version}`)
   await git.pushTags()
   await git.push('main')
+  console.log(`✓ tagged ${tagName}`)
+  console.log(`✓ pushed`)
 }
