@@ -61,7 +61,7 @@ export async function runTests(opts: DevCommandOptions): Promise<void> {
   const spawn = opts.spawn ?? defaultSpawn
   const cwd = resolve(opts.cwd)
   const cfg = loadConfig(cwd)
-  const argv = cfg.runtime === 'bun' ? ['bun', 'test'] : ['npm', 'test']
+  const argv = cfg.runtime === 'bun' ? ['bun', 'test'] : [findBin('vitest'), 'run']
   await runOrThrow(spawn, argv, cwd)
 }
 

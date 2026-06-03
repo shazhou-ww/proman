@@ -85,12 +85,13 @@ describe('test command', () => {
     expect(cwd).toBe(FIX('valid'))
   })
 
-  test('C3: node runtime invokes npm test', async () => {
+  test('C3: node runtime invokes vitest run', async () => {
     const { spawn, calls } = makeSpawn()
     await runTests({ cwd: FIX('node-runtime'), spawn })
     expect(calls).toHaveLength(1)
     const { argv } = calls[0] as Call
-    expect(argv).toEqual(['npm', 'test'])
+    expect(argv[0]).toContain('vitest')
+    expect(argv[1]).toBe('run')
   })
 
   test('C6: test throws on non-zero exit', async () => {
