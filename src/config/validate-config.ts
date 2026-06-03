@@ -1,6 +1,7 @@
-import type { PackageEntry, PromanConfig } from './types.ts'
+import type { PackageEntry, PackageType, PromanConfig } from './types.ts'
 
 const ERR_PREFIX = 'Invalid proman config:'
+const VALID_TYPES: readonly PackageType[] = ['lib', 'cli', 'webui', 'api']
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -10,14 +11,23 @@ function validatePackageEntry(entry: unknown, index: number): PackageEntry {
   if (!isPlainObject(entry)) {
     throw new Error(`${ERR_PREFIX} packages[${index}] must be an object`)
   }
-  const { name, path } = entry
+  const { name, path, type } = entry
   if (typeof name !== 'string' || name.length === 0) {
     throw new Error(`${ERR_PREFIX} packages[${index}].name must be a non-empty string`)
   }
   if (typeof path !== 'string' || path.length === 0) {
     throw new Error(`${ERR_PREFIX} packages[${index}].path must be a non-empty string`)
   }
-  return { name, path }
+  let resolvedType: PackageType = 'lib'
+  if (type !== undefined) {
+    if (typeof type !== 'string' || !VALID_TYPES.includes(type as PackageType)) {
+      throw new Error(
+        `${ERR_PREFIX} packages[${index}].type must be one of 'lib' | 'cli' | 'webui' | 'api'`,
+      )
+    }
+    resolvedType = type as PackageType
+  }
+  return { name, path, type: resolvedType }
 }
 
 /**

@@ -1,6 +1,9 @@
+export type PackageType = 'lib' | 'cli' | 'webui' | 'api'
+
 export type PackageEntry = {
   name: string
   path: string
+  type: PackageType
 }
 
 export type ChangesetConfig = {

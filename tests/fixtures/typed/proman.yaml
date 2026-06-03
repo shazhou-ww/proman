@@ -1,0 +1,15 @@
+name: "@myapp/workspace"
+runtime: bun
+packages:
+  - name: "@ocas/core"
+    path: packages/core
+    type: lib
+  - name: "@myapp/cli"
+    path: packages/mycli
+    type: cli
+  - name: "@myapp/dashboard"
+    path: packages/dashboard
+    type: webui
+  - name: "@myapp/api"
+    path: packages/api
+    type: api
