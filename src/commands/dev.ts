@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs'
+import { existsSync, rmSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { loadConfig } from '../config/index.ts'
@@ -38,6 +38,11 @@ export async function build(opts: DevCommandOptions): Promise<void> {
   const cfg = loadConfig(cwd)
   for (const pkg of cfg.packages) {
     const pkgDir = resolve(cwd, pkg.path)
+    // Clean output dir before build to prevent stale artifacts
+    const outDir = join(pkgDir, 'dist')
+    if (existsSync(outDir)) {
+      rmSync(outDir, { recursive: true })
+    }
     let argv: string[]
     switch (pkg.type) {
       case 'webui':
