@@ -59,8 +59,7 @@ export async function publish(opts: PublishOptions = {}): Promise<void> {
   const now = opts.now ?? (() => new Date())
 
   const cfg = loadConfig(cwd)
-  const pm = cfg.packageManager ?? 'pnpm'
-
+  const npm = opts.npm ?? createNpmRunner(cwd)
   // Read version from first package
   const firstPkg = cfg.packages[0]
   if (!firstPkg) throw new Error('no packages configured')
@@ -73,7 +72,6 @@ export async function publish(opts: PublishOptions = {}): Promise<void> {
   const publishTag = isRc ? 'rc' : 'latest'
 
   // Build + test + check
-  const npm = opts.npm ?? createNpmRunner(pm, cwd)
   await npm.install()
   await npm.build()
   if (!skipTests) {

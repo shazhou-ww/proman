@@ -90,30 +90,23 @@ describe('createNpmRunner format argv', () => {
     return { spawn: fn, calls }
   }
 
-  test('B1: bun packageManager runs format via bun', async () => {
-    const { spawn, calls } = makeSpawn()
-    const runner = createNpmRunner('bun', '/root', spawn)
-    await runner.format()
-    expect(calls[0]).toEqual(['bun', 'run', 'format'])
-  })
-
-  test('B2: npm packageManager runs format via npm', async () => {
-    const { spawn, calls } = makeSpawn()
-    const runner = createNpmRunner('npm', '/root', spawn)
-    await runner.format()
-    expect(calls[0]).toEqual(['npm', 'run', 'format'])
-  })
-
   test('B3: format is a function', () => {
     const { spawn } = makeSpawn()
-    const runner = createNpmRunner('bun', '/root', spawn)
+    const runner = createNpmRunner('/root', spawn)
     expect(typeof runner.format).toBe('function')
+  })
+
+  test('runs format via pnpm', async () => {
+    const { spawn, calls } = makeSpawn()
+    const runner = createNpmRunner('/root', spawn)
+    await runner.format()
+    expect(calls[0]).toEqual(['pnpm', 'run', 'format'])
   })
 
   test('B4: non-zero exit throws with argv', async () => {
     const { spawn } = makeSpawn(1)
-    const runner = createNpmRunner('bun', '/root', spawn)
-    await expect(runner.format()).rejects.toThrow(/bun run format/)
+    const runner = createNpmRunner('/root', spawn)
+    await expect(runner.format()).rejects.toThrow(/pnpm run format/)
   })
 })
 
@@ -127,39 +120,21 @@ describe('createNpmRunner publish argv', () => {
     return { spawn: fn, calls }
   }
 
-  test('bun packageManager publishes via bun', async () => {
+  test('publishes via pnpm with --no-git-checks', async () => {
     const { spawn, calls } = makeSpawn()
-    const runner = createNpmRunner('bun', '/root', spawn)
-    await runner.publish('/root/packages/a', { tag: 'rc' })
-    const last = calls[calls.length - 1] as string[]
-    expect(last[0]).toBe('bun')
-    expect(last[1]).toBe('publish')
-    expect(last).toContain('--tag')
-    expect(last).toContain('rc')
-  })
-
-  test('npm packageManager publishes via npm', async () => {
-    const { spawn, calls } = makeSpawn()
-    const runner = createNpmRunner('npm', '/root', spawn)
-    await runner.publish('/root/packages/a', { tag: 'rc' })
-    const last = calls[calls.length - 1] as string[]
-    expect(last[0]).toBe('npm')
-    expect(last[1]).toBe('publish')
-  })
-
-  test('pnpm packageManager publishes via pnpm with --no-git-checks', async () => {
-    const { spawn, calls } = makeSpawn()
-    const runner = createNpmRunner('pnpm', '/root', spawn)
+    const runner = createNpmRunner('/root', spawn)
     await runner.publish('/root/packages/a', { tag: 'rc' })
     const last = calls[calls.length - 1] as string[]
     expect(last[0]).toBe('pnpm')
     expect(last[1]).toBe('publish')
     expect(last).toContain('--no-git-checks')
+    expect(last).toContain('--tag')
+    expect(last).toContain('rc')
   })
 
   test('passes --access public', async () => {
     const { spawn, calls } = makeSpawn()
-    const runner = createNpmRunner('bun', '/root', spawn)
+    const runner = createNpmRunner('/root', spawn)
     await runner.publish('/root/packages/a', { tag: 'rc', access: 'public' })
     const last = calls[calls.length - 1] as string[]
     expect(last).toContain('--access')

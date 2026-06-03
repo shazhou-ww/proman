@@ -15,8 +15,7 @@ function applyDefaults(config: PromanConfig): PromanConfig {
   if (config.release?.access !== undefined) {
     release.access = config.release.access
   }
-  const packageManager = config.packageManager ?? 'pnpm'
-  return { ...config, packageManager, release }
+  return { ...config, release }
 }
 
 /**
