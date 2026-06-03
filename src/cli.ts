@@ -4,18 +4,18 @@ import { deploy } from './commands/deploy.ts'
 import { bump } from './commands/bump.ts'
 import { publish } from './commands/publish.ts'
 
-const VERSION = '0.3.0'
+const VERSION = '0.4.3'
 
 const HELP_TEXT = `Usage: proman <command> [options]
 
 Commands:
   bump                  Bump package versions (from changesets or --type)
-  publish               Build, test, publish, changelog, tag, push
+  publish               Build, test, publish, changelog, tag, push [--skip-tests]
   build                 Build each package by type (tsc/vite)
   deploy                Deploy webui/api packages (wrangler)
   test                  Run tests
-  check                 Lint with biome (bundled)
-  format                Format with biome (bundled)
+  check                 Lint with biome
+  format                Format with biome
 
 Options:
   -h, --help            Show this help

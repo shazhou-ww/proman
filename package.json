@@ -2,6 +2,7 @@
   "name": "@shazhou/proman",
   "version": "0.4.3",
   "type": "module",
+  "description": "Project manager CLI for TypeScript monorepos",
   "bin": {
     "proman": "./dist/cli.js"
   },
