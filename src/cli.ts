@@ -1,14 +1,16 @@
 #!/usr/bin/env node
 import { build, check, format, runTests } from './commands/dev.ts'
 import { deploy } from './commands/deploy.ts'
-import { release } from './commands/release.ts'
+import { bump } from './commands/bump.ts'
+import { publish } from './commands/publish.ts'
 
 const VERSION = '0.3.0'
 
 const HELP_TEXT = `Usage: proman <command> [options]
 
 Commands:
-  release               Publish a release (bump, build, test, publish, tag)
+  bump                  Bump package versions (from changesets or --type)
+  publish               Build, test, publish, changelog, tag, push
   build                 Build each package by type (tsc/vite)
   deploy                Deploy webui/api packages (wrangler)
   test                  Run tests
@@ -20,42 +22,38 @@ Options:
   -v, --version         Show version
 `
 
-export function parseReleaseArgs(argv: string[]): {
-  version: string | undefined
-  bump: 'major' | 'minor' | 'patch' | undefined
-  force: boolean
-  skipTests: boolean
+export function parseBumpArgs(argv: string[]): {
+  type: 'major' | 'minor' | 'patch' | undefined
 } {
-  let version: string | undefined
-  let bump: 'major' | 'minor' | 'patch' | undefined
-  let force = false
-  let skipTests = false
+  let type: 'major' | 'minor' | 'patch' | undefined
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
-    if (a === '--version') {
-      const v = argv[i + 1]
-      if (!v) throw new Error('--version requires a value')
-      version = v
-      i++
-    } else if (a === '--bump') {
+    if (a === '--type') {
       const v = argv[i + 1]
       if (v !== 'major' && v !== 'minor' && v !== 'patch') {
-        throw new Error('--bump must be major, minor, or patch')
+        throw new Error('--type must be major, minor, or patch')
       }
-      bump = v
+      type = v
       i++
-    } else if (a === '--force') {
-      force = true
-    } else if (a === '--skip-tests') {
+    } else {
+      throw new Error(`unknown flag: ${a}`)
+    }
+  }
+  return { type }
+}
+
+export function parsePublishArgs(argv: string[]): {
+  skipTests: boolean
+} {
+  let skipTests = false
+  for (const a of argv) {
+    if (a === '--skip-tests') {
       skipTests = true
     } else {
       throw new Error(`unknown flag: ${a}`)
     }
   }
-  if (version && bump) {
-    throw new Error('--version and --bump are mutually exclusive')
-  }
-  return { version, bump, force, skipTests }
+  return { skipTests }
 }
 
 export function parseDeployArgs(argv: string[]): { pkg?: string; env?: string } {
@@ -96,9 +94,15 @@ async function main(argv: string[]): Promise<void> {
     console.log(VERSION)
     return
   }
-  if (cmd === 'release') {
-    const { version, bump, force, skipTests } = parseReleaseArgs(argv.slice(1))
-    await release({ version, bump, force, skipTests })
+  if (cmd === 'bump') {
+    const { type } = parseBumpArgs(argv.slice(1))
+    const version = await bump({ type })
+    console.log(version)
+    return
+  }
+  if (cmd === 'publish') {
+    const { skipTests } = parsePublishArgs(argv.slice(1))
+    await publish({ skipTests })
     return
   }
   if (cmd === 'build') {

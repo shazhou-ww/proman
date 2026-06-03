@@ -9,15 +9,11 @@ import {
 } from '../utils/changeset.ts'
 import { type GitOps, createGitOps } from '../utils/git.ts'
 import { type NpmRunner, createNpmRunner } from '../utils/npm.ts'
-import { bumpVersion, inferBump } from '../utils/version.ts'
 
 export type { GitOps } from '../utils/git.ts'
 export type { NpmRunner } from '../utils/npm.ts'
 
-export type ReleaseOptions = {
-  version?: string
-  bump?: 'major' | 'minor' | 'patch'
-  force?: boolean
+export type PublishOptions = {
   skipTests?: boolean
   cwd?: string
   git?: GitOps
@@ -39,10 +35,6 @@ async function readJson(path: string): Promise<Record<string, unknown>> {
   return JSON.parse(text) as Record<string, unknown>
 }
 
-async function writeJson(path: string, data: Record<string, unknown>): Promise<void> {
-  await writeFile(path, `${JSON.stringify(data, null, 2)}\n`)
-}
-
 async function fileExists(path: string): Promise<boolean> {
   try {
     await stat(path)
@@ -56,66 +48,29 @@ function isRcVersion(version: string): boolean {
   return /-rc\.\d+$/.test(version)
 }
 
-export async function release(opts: ReleaseOptions = {}): Promise<void> {
-  const { force = false, skipTests = false } = opts
+/**
+ * Publish all packages. Reads current version from package.json (bump first!).
+ * build → test → check → publish → changelog → commit → tag → push
+ */
+export async function publish(opts: PublishOptions = {}): Promise<void> {
+  const { skipTests = false } = opts
   const cwd = opts.cwd ?? process.cwd()
   const git = opts.git ?? createGitOps(cwd)
   const now = opts.now ?? (() => new Date())
 
-  // Must be on main, clean tree
-  const branch = await git.getCurrentBranch()
-  if (branch !== 'main') {
-    throw new Error(`must be on main branch (current: ${branch})`)
-  }
-  if (!(await git.isCleanTree())) {
-    throw new Error('working tree must be clean')
-  }
-
   const cfg = loadConfig(cwd)
   const pm = cfg.packageManager ?? 'npm'
 
-  // Determine version
-  let version: string
-  if (opts.version) {
-    version = opts.version
-  } else if (opts.bump) {
-    const firstPkg = cfg.packages[0]
-    if (!firstPkg) throw new Error('no packages configured')
-    const pkgPath = resolve(cwd, firstPkg.path, 'package.json')
-    const json = await readJson(pkgPath)
-    const current = json.version as string
-    if (!current) throw new Error(`missing version in ${pkgPath}`)
-    version = bumpVersion(current, opts.bump)
-  } else {
-    // Auto-infer from changesets
-    const changesets = await readChangesets(cwd)
-    if (changesets.length === 0) {
-      throw new Error('no version specified and no pending changesets found (use --version or --bump)')
-    }
-    const fixed = cfg.changeset?.fixed === true
-    const bump = inferBump(changesets, fixed)
-    if (bump === null) {
-      throw new Error('no inferable bump from changeset entries')
-    }
-    const firstPkg = cfg.packages[0]
-    if (!firstPkg) throw new Error('no packages configured')
-    const pkgPath = resolve(cwd, firstPkg.path, 'package.json')
-    const json = await readJson(pkgPath)
-    const current = json.version as string
-    if (!current) throw new Error(`missing version in ${pkgPath}`)
-    version = bumpVersion(current, bump)
-  }
+  // Read version from first package
+  const firstPkg = cfg.packages[0]
+  if (!firstPkg) throw new Error('no packages configured')
+  const firstPkgPath = resolve(cwd, firstPkg.path, 'package.json')
+  const firstJson = await readJson(firstPkgPath)
+  const version = firstJson.version as string
+  if (!version) throw new Error(`missing version in ${firstPkgPath}`)
 
   const isRc = isRcVersion(version)
   const publishTag = isRc ? 'rc' : 'latest'
-
-  // Bump all package versions
-  for (const pkg of cfg.packages) {
-    const pkgPath = resolve(cwd, pkg.path, 'package.json')
-    const json = await readJson(pkgPath)
-    json.version = version
-    await writeJson(pkgPath, json)
-  }
 
   // Build + test + check
   const npm = opts.npm ?? createNpmRunner(pm, cwd)
@@ -149,7 +104,7 @@ export async function release(opts: ReleaseOptions = {}): Promise<void> {
     const changesets = await readChangesets(cwd)
     const pkgNames = new Set(cfg.packages.map((p) => p.name))
 
-    if (changesets.length > 0 || force) {
+    if (changesets.length > 0) {
       const date = formatDate(now())
       const byPackage: Record<string, Changeset[]> = {}
       for (const cs of changesets) {
