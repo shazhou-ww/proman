@@ -13,6 +13,8 @@ Commands:
   publish               Build, test, publish, changelog, tag, push [--skip-tests]
   build                 Build each package by type (tsc/vite)
   deploy                Deploy webui/api packages (wrangler)
+                          --package <name>  Deploy a single package
+                          --env <env>       Wrangler environment (e.g. staging)
   test                  Run tests
   check                 Lint with biome
   format                Format with biome

@@ -20,6 +20,21 @@ pnpm add -D @shazhou/proman
 | `proman publish` | Full release pipeline: build → test → check → publish → changelog → tag → push |
 | `proman deploy` | Deploy webui/api packages (wrangler) |
 
+### Deploy
+
+Deploy webui (Cloudflare Pages) and api (Cloudflare Workers) packages via wrangler.
+
+```bash
+proman deploy                    # deploy all webui/api packages
+proman deploy --package @myorg/web  # deploy a single package
+proman deploy --env staging      # deploy to a specific wrangler environment
+```
+
+| Flag | Description |
+|------|-------------|
+| `--package <name>` | Deploy only the named package (must be type webui or api) |
+| `--env <env>` | Wrangler environment to deploy to (e.g. staging, production) |
+
 ## Configuration
 
 Create `proman.yaml` in your project root:
