@@ -1,5 +1,0 @@
-name: my-project
-runtime: deno
-packages:
-  - name: my-pkg
-    path: .
