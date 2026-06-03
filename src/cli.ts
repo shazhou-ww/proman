@@ -1,9 +1,13 @@
 #!/usr/bin/env node
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { build, check, format, runTests } from './commands/dev.ts'
 import { deploy } from './commands/deploy.ts'
 import { bump } from './commands/bump.ts'
 import { publish } from './commands/publish.ts'
 
+const __dirname = dirname(fileURLToPath(import.meta.url))
 const VERSION = '0.4.3'
 
 const HELP_TEXT = `Usage: proman <command> [options]
@@ -18,6 +22,8 @@ Commands:
   test                  Run tests
   check                 Lint with biome
   format                Format with biome
+  prompt setup          Show skill installation instructions (for agents)
+  prompt usage          Show full CLI usage as markdown (for agents)
 
 Options:
   -h, --help            Show this help
@@ -131,6 +137,24 @@ async function main(argv: string[]): Promise<void> {
     parseDevArgs(argv.slice(1))
     await format({ cwd: process.cwd() })
     return
+  }
+  if (cmd === 'prompt') {
+    const sub = argv[1]
+    if (sub === 'usage') {
+      process.stdout.write(
+        readFileSync(join(__dirname, '..', 'prompts', 'usage.md'), 'utf-8'),
+      )
+      return
+    }
+    if (sub === 'setup') {
+      process.stdout.write(
+        readFileSync(join(__dirname, '..', 'prompts', 'setup.md'), 'utf-8'),
+      )
+      return
+    }
+    throw new Error(
+      `Unknown prompt subcommand: ${sub ?? '(none)'}. Available: usage, setup`,
+    )
   }
   throw new Error(`unknown command: ${cmd}`)
 }
