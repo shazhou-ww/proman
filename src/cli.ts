@@ -5,7 +5,7 @@ import { releaseCandidate } from './commands/release-candidate.ts'
 import { releaseFinalize } from './commands/release-finalize.ts'
 import { releasePrepare } from './commands/release-prepare.ts'
 
-const VERSION = '0.1.1'
+const VERSION = '0.2.0'
 
 const HELP_TEXT = `Usage: proman <command> [options]
 
