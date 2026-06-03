@@ -72,4 +72,20 @@ describe('validateConfig', () => {
       }),
     ).toThrow(/packages\[0\]\.type/)
   })
+
+  test('accepts valid packageManager', () => {
+    for (const pm of ['npm', 'pnpm', 'bun']) {
+      const result = validateConfig({ ...minimal, packageManager: pm })
+      expect(result.packageManager).toBe(pm)
+    }
+  })
+
+  test('rejects invalid packageManager', () => {
+    expect(() => validateConfig({ ...minimal, packageManager: 'yarn' })).toThrow(/packageManager/)
+  })
+
+  test('packageManager is optional', () => {
+    const result = validateConfig(minimal)
+    expect(result.packageManager).toBeUndefined()
+  })
 })

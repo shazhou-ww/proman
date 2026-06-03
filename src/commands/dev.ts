@@ -61,7 +61,8 @@ export async function runTests(opts: DevCommandOptions): Promise<void> {
   const spawn = opts.spawn ?? defaultSpawn
   const cwd = resolve(opts.cwd)
   const cfg = loadConfig(cwd)
-  const argv = cfg.runtime === 'bun' ? ['bun', 'test'] : ['npm', 'run', 'test']
+  const pm = cfg.packageManager ?? 'npm'
+  const argv = pm === 'bun' ? ['bun', 'test'] : [pm, 'run', 'test']
   await runOrThrow(spawn, argv, cwd)
 }
 

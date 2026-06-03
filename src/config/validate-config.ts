@@ -39,7 +39,7 @@ export function validateConfig(value: unknown): PromanConfig {
     throw new Error(`${ERR_PREFIX} config must be an object`)
   }
 
-  const { name, runtime, packages, changeset, release } = value
+  const { name, runtime, packageManager, packages, changeset, release } = value
 
   if (typeof name !== 'string' || name.length === 0) {
     throw new Error(`${ERR_PREFIX} name must be a non-empty string`)
@@ -47,6 +47,15 @@ export function validateConfig(value: unknown): PromanConfig {
 
   if (runtime !== 'bun' && runtime !== 'node') {
     throw new Error(`${ERR_PREFIX} runtime must be one of 'bun' | 'node'`)
+  }
+
+  if (
+    packageManager !== undefined &&
+    packageManager !== 'npm' &&
+    packageManager !== 'pnpm' &&
+    packageManager !== 'bun'
+  ) {
+    throw new Error(`${ERR_PREFIX} packageManager must be one of 'npm' | 'pnpm' | 'bun'`)
   }
 
   if (!Array.isArray(packages) || packages.length === 0) {
@@ -92,6 +101,8 @@ export function validateConfig(value: unknown): PromanConfig {
     runtime,
     packages: validatedPackages,
   }
+  if (packageManager !== undefined)
+    result.packageManager = packageManager as PromanConfig['packageManager']
   if (validatedChangeset !== undefined) result.changeset = validatedChangeset
   if (validatedRelease !== undefined) result.release = validatedRelease
   return result

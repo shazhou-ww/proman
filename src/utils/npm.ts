@@ -89,11 +89,11 @@ async function runOrThrow(spawn: SpawnFn, argv: string[], cwd: string): Promise<
 }
 
 export function createNpmRunner(
-  runtime: 'bun' | 'node',
+  packageManager: 'npm' | 'pnpm' | 'bun',
   cwd: string,
   spawn: SpawnFn = defaultSpawn,
 ): NpmRunner {
-  const tool = runtime === 'bun' ? 'bun' : 'npm'
+  const tool = packageManager
   const runScript = (script: string) => async () => {
     await runOrThrow(spawn, [tool, 'run', script], cwd)
   }
@@ -103,17 +103,18 @@ export function createNpmRunner(
     },
     build: runScript('build'),
     test: async () => {
-      await runOrThrow(
-        spawn,
-        [tool, runtime === 'bun' ? 'test' : 'run', ...(runtime === 'bun' ? [] : ['test'])],
-        cwd,
-      )
+      if (tool === 'bun') {
+        await runOrThrow(spawn, ['bun', 'test'], cwd)
+      } else {
+        await runOrThrow(spawn, [tool, 'run', 'test'], cwd)
+      }
     },
     check: runScript('check'),
     format: runScript('format'),
     publish: async (pkgDir, opts) => {
       const args = [tool, 'publish', '--tag', opts.tag]
       if (opts.access) args.push('--access', opts.access)
+      if (tool === 'pnpm') args.push('--no-git-checks')
       await runOrThrow(spawn, args, pkgDir)
     },
   }

@@ -93,6 +93,14 @@ describe('test command', () => {
     expect(argv).toEqual(['npm', 'run', 'test'])
   })
 
+  test('C3b: pnpm project invokes pnpm run test', async () => {
+    const { spawn, calls } = makeSpawn()
+    await runTests({ cwd: FIX('pnpm-project'), spawn })
+    expect(calls).toHaveLength(1)
+    const { argv } = calls[0] as Call
+    expect(argv).toEqual(['pnpm', 'run', 'test'])
+  })
+
   test('C6: test throws on non-zero exit', async () => {
     const { spawn } = makeSpawn(1, '', 'fail')
     await expect(runTests({ cwd: FIX('valid'), spawn })).rejects.toThrow()
