@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import { validateConfig } from '../src/config/index.ts'
 
 const minimal = {

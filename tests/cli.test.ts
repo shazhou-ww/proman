@@ -1,12 +1,14 @@
-import { describe, expect, test } from 'bun:test'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+const __dirname = dirname(fileURLToPath(import.meta.url))
+import { describe, expect, test } from 'vitest'
 import { spawnSync } from 'node:child_process'
-import { resolve } from 'node:path'
 import { parseDeployArgs } from '../src/cli.ts'
 
-const CLI = resolve(import.meta.dir, '..', 'src', 'cli.ts')
+const CLI = resolve(__dirname, '..', 'dist', 'cli.js')
 
 function runCli(args: string[]): { code: number; stdout: string; stderr: string } {
-  const res = spawnSync('bun', [CLI, ...args], { encoding: 'utf8' })
+  const res = spawnSync('node', [CLI, ...args], { encoding: 'utf8' })
   return {
     code: res.status ?? 0,
     stdout: res.stdout ?? '',

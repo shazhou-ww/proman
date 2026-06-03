@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
 import { build, check, format, runTests } from './commands/dev.ts'
 import { deploy } from './commands/deploy.ts'
 import { releaseCandidate } from './commands/release-candidate.ts'

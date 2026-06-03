@@ -10,7 +10,7 @@
     "esModuleInterop": true,
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
-    "types": ["bun"],
+    "types": ["node"],
     "lib": ["ESNext"]
   },
   "include": ["src/**/*", "tests/**/*"]

@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'vitest'
 import type { Changeset } from '../src/utils/changeset.ts'
 import { bumpVersion, inferBump, parseTagVersion } from '../src/utils/version.ts'
 

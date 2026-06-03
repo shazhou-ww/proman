@@ -1,9 +1,11 @@
-import { describe, expect, test } from 'bun:test'
-import { resolve } from 'node:path'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+const __dirname = dirname(fileURLToPath(import.meta.url))
+import { describe, expect, test } from 'vitest'
 import { build, check, format, runTests } from '../src/commands/dev.ts'
 import type { SpawnFn } from '../src/utils/npm.ts'
 
-const FIX = (name: string) => resolve(import.meta.dir, 'fixtures', name)
+const FIX = (name: string) => resolve(__dirname, 'fixtures', name)
 
 type Call = { argv: string[]; cwd: string }
 

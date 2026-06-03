@@ -1,8 +1,10 @@
-import { describe, expect, test } from 'bun:test'
-import { resolve } from 'node:path'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+const __dirname = dirname(fileURLToPath(import.meta.url))
+import { describe, expect, test } from 'vitest'
 import { loadConfig } from '../src/config/index.ts'
 
-const FIX = (name: string) => resolve(import.meta.dir, 'fixtures', name)
+const FIX = (name: string) => resolve(__dirname, 'fixtures', name)
 
 describe('loadConfig', () => {
   test('happy path — loads issue example fixture', () => {
@@ -25,7 +27,7 @@ describe('loadConfig', () => {
   })
 
   test('rejects when proman.yaml is missing', () => {
-    expect(() => loadConfig(resolve(import.meta.dir, 'fixtures', 'no-such-dir'))).toThrow(
+    expect(() => loadConfig(resolve(__dirname, 'fixtures', 'no-such-dir'))).toThrow(
       /proman\.yaml not found/,
     )
   })
