@@ -1,4 +1,4 @@
-import { readFile, readdir } from 'node:fs/promises'
+import { readFile, readdir, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { loadConfig } from '../config/load-config.ts'
 import { readChangesets } from '../utils/changeset.ts'
@@ -56,6 +56,20 @@ async function readCurrentVersion(cwd: string): Promise<string> {
   return parsed.version
 }
 
+async function bumpAllVersions(
+  cwd: string,
+  packages: { name: string; path: string }[],
+  version: string,
+): Promise<void> {
+  for (const pkg of packages) {
+    const pkgPath = resolve(cwd, pkg.path, 'package.json')
+    const text = await readFile(pkgPath, 'utf8')
+    const parsed = JSON.parse(text) as Record<string, unknown>
+    parsed.version = version
+    await writeFile(pkgPath, `${JSON.stringify(parsed, null, 2)}\n`)
+  }
+}
+
 export async function releasePrepare(opts: ReleasePrepareOptions): Promise<void> {
   const { from, patch = false, force = false } = opts
   const cwd = opts.cwd ?? process.cwd()
@@ -93,6 +107,7 @@ export async function releasePrepare(opts: ReleasePrepareOptions): Promise<void>
     }
     const cfg = loadConfig(cwd)
     await git.checkoutNewBranchFrom(releaseBranch, from)
+    await bumpAllVersions(cwd, cfg.packages, version)
     await applyWorkspaceRewrites(cwd, cfg.packages)
     await git.addAll()
     await git.commit(`release: prepare v${version}`, AUTHOR)
@@ -147,6 +162,7 @@ export async function releasePrepare(opts: ReleasePrepareOptions): Promise<void>
   const cfg = loadConfig(cwd)
 
   await git.checkoutNewBranch(releaseBranch)
+  await bumpAllVersions(cwd, cfg.packages, version)
   await applyWorkspaceRewrites(cwd, cfg.packages)
   await git.addAll()
   await git.commit(`release: prepare v${version}`, AUTHOR)
