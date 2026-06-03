@@ -18,14 +18,18 @@ export type GitOps = {
 }
 
 async function run(args: string[], cwd: string = process.cwd()): Promise<string> {
-  const proc = Bun.spawn(['git', ...args], { cwd, stdout: 'pipe', stderr: 'pipe' })
-  const code = await proc.exited
-  const stdout = await new Response(proc.stdout).text()
-  if (code !== 0) {
-    const stderr = await new Response(proc.stderr).text()
-    throw new Error(`git ${args.join(' ')} failed: ${stderr.trim() || stdout.trim()}`)
+  const { execFileSync } = await import('node:child_process')
+  try {
+    return execFileSync('git', args, {
+      cwd,
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+      maxBuffer: 10 * 1024 * 1024,
+    })
+  } catch (err: unknown) {
+    const e = err as { stderr?: string; stdout?: string }
+    throw new Error(`git ${args.join(' ')} failed: ${(e.stderr ?? e.stdout ?? '').trim()}`)
   }
-  return stdout
 }
 
 function parseAuthor(author: string): { name: string; email: string } {
@@ -39,13 +43,16 @@ export function createGitOps(cwd: string = process.cwd()): GitOps {
     getCurrentBranch: async () => (await run(['branch', '--show-current'], cwd)).trim(),
     isCleanTree: async () => (await run(['status', '--porcelain'], cwd)).trim() === '',
     branchExists: async (name) => {
-      const proc = Bun.spawn(['git', 'show-ref', '--verify', '--quiet', `refs/heads/${name}`], {
-        cwd,
-        stdout: 'pipe',
-        stderr: 'pipe',
-      })
-      const code = await proc.exited
-      return code === 0
+      const { execFileSync } = await import('node:child_process')
+      try {
+        execFileSync('git', ['show-ref', '--verify', '--quiet', `refs/heads/${name}`], {
+          cwd,
+          stdio: ['pipe', 'pipe', 'pipe'],
+        })
+        return true
+      } catch {
+        return false
+      }
     },
     checkoutNewBranch: async (name) => {
       await run(['checkout', '-b', name], cwd)
@@ -54,13 +61,16 @@ export function createGitOps(cwd: string = process.cwd()): GitOps {
       await run(['checkout', '-b', name, ref], cwd)
     },
     tagExists: async (tag) => {
-      const proc = Bun.spawn(['git', 'rev-parse', '--verify', '-q', `refs/tags/${tag}`], {
-        cwd,
-        stdout: 'pipe',
-        stderr: 'pipe',
-      })
-      const code = await proc.exited
-      return code === 0
+      const { execFileSync } = await import('node:child_process')
+      try {
+        execFileSync('git', ['rev-parse', '--verify', '-q', `refs/tags/${tag}`], {
+          cwd,
+          stdio: ['pipe', 'pipe', 'pipe'],
+        })
+        return true
+      } catch {
+        return false
+      }
     },
     addAll: async () => {
       await run(['add', '-A'], cwd)

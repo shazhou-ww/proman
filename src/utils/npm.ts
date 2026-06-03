@@ -62,14 +62,23 @@ export type SpawnFn = (
 ) => Promise<{ code: number; stdout: string; stderr: string }>
 
 export const defaultSpawn: SpawnFn = async (argv, cwd) => {
-  const proc = Bun.spawn(argv, { cwd, stdout: 'pipe', stderr: 'pipe' })
-  // Consume streams concurrently with exited to avoid pipe buffer deadlock
-  const [code, stdout, stderr] = await Promise.all([
-    proc.exited,
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-  ])
-  return { code, stdout, stderr }
+  const { execFileSync } = await import('node:child_process')
+  try {
+    const stdout = execFileSync(argv[0], argv.slice(1), {
+      cwd,
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+      maxBuffer: 10 * 1024 * 1024,
+    })
+    return { code: 0, stdout, stderr: '' }
+  } catch (err: unknown) {
+    const e = err as { status?: number; stdout?: string; stderr?: string }
+    return {
+      code: e.status ?? 1,
+      stdout: e.stdout ?? '',
+      stderr: e.stderr ?? '',
+    }
+  }
 }
 
 async function runOrThrow(spawn: SpawnFn, argv: string[], cwd: string): Promise<void> {
