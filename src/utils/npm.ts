@@ -106,7 +106,7 @@ export function createNpmRunner(
       if (tool === 'bun') {
         await runOrThrow(spawn, ['bun', 'test'], cwd)
       } else {
-        await runOrThrow(spawn, [tool, 'run', 'test'], cwd)
+        await runOrThrow(spawn, [tool, 'exec', 'vitest', 'run'], cwd)
       }
     },
     check: runScript('check'),
