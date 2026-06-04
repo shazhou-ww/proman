@@ -1,7 +1,7 @@
-import { afterEach, beforeEach, describe, expect, test } from 'vitest'
-import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { parsePublishArgs } from '../src/cli.ts'
 import { type GitOps, type NpmRunner, publish } from '../src/commands/publish.ts'
 
@@ -273,9 +273,7 @@ describe('changelog', () => {
     const { npm } = makeNpm()
     await publish({ cwd: tmp, git, npm, now: NOW })
 
-    const exists = await readFile(join(tmp, 'packages/core/CHANGELOG.md'), 'utf8').catch(
-      () => null,
-    )
+    const exists = await readFile(join(tmp, 'packages/core/CHANGELOG.md'), 'utf8').catch(() => null)
     expect(exists).toBeNull()
   })
 })

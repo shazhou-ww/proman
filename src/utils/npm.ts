@@ -77,15 +77,12 @@ export const defaultSpawn: SpawnFn = async (argv, cwd) => {
 async function runOrThrow(spawn: SpawnFn, argv: string[], cwd: string): Promise<void> {
   const { code, stdout, stderr } = await spawn(argv, cwd)
   if (code !== 0) {
-    const detail = (stderr.trim() || stdout.trim())
+    const detail = stderr.trim() || stdout.trim()
     throw new Error(detail ? `${argv.join(' ')} failed: ${detail}` : `${argv.join(' ')} failed`)
   }
 }
 
-export function createNpmRunner(
-  cwd: string,
-  spawn: SpawnFn = defaultSpawn,
-): NpmRunner {
+export function createNpmRunner(cwd: string, spawn: SpawnFn = defaultSpawn): NpmRunner {
   const runScript = (script: string) => async () => {
     await runOrThrow(spawn, ['pnpm', 'run', script], cwd)
   }

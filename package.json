@@ -3,7 +3,15 @@
   "version": "0.6.0",
   "type": "module",
   "description": "Project manager CLI for TypeScript monorepos",
-  "keywords": ["typescript", "monorepo", "build", "cli", "pnpm", "biome", "vitest"],
+  "keywords": [
+    "typescript",
+    "monorepo",
+    "build",
+    "cli",
+    "pnpm",
+    "biome",
+    "vitest"
+  ],
   "bin": {
     "proman": "./dist/cli.js"
   },

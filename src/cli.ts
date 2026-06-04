@@ -2,9 +2,9 @@
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { build, check, format, runTests } from './commands/dev.ts'
-import { deploy } from './commands/deploy.ts'
 import { bump } from './commands/bump.ts'
+import { deploy } from './commands/deploy.ts'
+import { build, check, format, runTests } from './commands/dev.ts'
 import { publish } from './commands/publish.ts'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -143,20 +143,14 @@ async function main(argv: string[]): Promise<void> {
   if (cmd === 'prompt') {
     const sub = argv[1]
     if (sub === 'usage') {
-      process.stdout.write(
-        readFileSync(join(__dirname, '..', 'prompts', 'usage.md'), 'utf-8'),
-      )
+      process.stdout.write(readFileSync(join(__dirname, '..', 'prompts', 'usage.md'), 'utf-8'))
       return
     }
     if (sub === 'setup') {
-      process.stdout.write(
-        readFileSync(join(__dirname, '..', 'prompts', 'setup.md'), 'utf-8'),
-      )
+      process.stdout.write(readFileSync(join(__dirname, '..', 'prompts', 'setup.md'), 'utf-8'))
       return
     }
-    throw new Error(
-      `Unknown prompt subcommand: ${sub ?? '(none)'}. Available: usage, setup`,
-    )
+    throw new Error(`Unknown prompt subcommand: ${sub ?? '(none)'}. Available: usage, setup`)
   }
   throw new Error(`unknown command: ${cmd}`)
 }

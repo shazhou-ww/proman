@@ -2,13 +2,13 @@ import { readFile, stat, unlink, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { loadConfig } from '../config/load-config.ts'
 import {
-  type Changeset,
   buildChangelogEntry,
+  type Changeset,
   prependChangelog,
   readChangesets,
 } from '../utils/changeset.ts'
-import { type GitOps, createGitOps } from '../utils/git.ts'
-import { type NpmRunner, createNpmRunner } from '../utils/npm.ts'
+import { createGitOps, type GitOps } from '../utils/git.ts'
+import { createNpmRunner, type NpmRunner } from '../utils/npm.ts'
 
 export type { GitOps } from '../utils/git.ts'
 export type { NpmRunner } from '../utils/npm.ts'

@@ -1,7 +1,7 @@
-import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { parseBumpArgs } from '../src/cli.ts'
 import { bump } from '../src/commands/bump.ts'
 
@@ -23,10 +23,7 @@ async function setupFixture(tmp: string, opts: FixtureOptions = {}) {
     : [{ name: '@test/core', path: 'packages/core', type: 'lib' }]
 
   const { stringify } = await import('yaml')
-  await writeFile(
-    join(tmp, 'proman.yaml'),
-    stringify({ packages }),
-  )
+  await writeFile(join(tmp, 'proman.yaml'), stringify({ packages }))
 
   for (const pkg of packages) {
     const dir = join(tmp, pkg.path)
