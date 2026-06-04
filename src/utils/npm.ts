@@ -62,29 +62,23 @@ export type SpawnFn = (
 ) => Promise<{ code: number; stdout: string; stderr: string }>
 
 export const defaultSpawn: SpawnFn = async (argv, cwd) => {
-  const { execFileSync } = await import('node:child_process')
-  try {
-    const stdout = execFileSync(argv[0], argv.slice(1), {
-      cwd,
-      encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'pipe'],
-      maxBuffer: 10 * 1024 * 1024,
-    })
-    return { code: 0, stdout, stderr: '' }
-  } catch (err: unknown) {
-    const e = err as { status?: number; stdout?: string; stderr?: string }
-    return {
-      code: e.status ?? 1,
-      stdout: e.stdout ?? '',
-      stderr: e.stderr ?? '',
-    }
+  const { spawnSync } = await import('node:child_process')
+  const result = spawnSync(argv[0] as string, argv.slice(1), {
+    cwd,
+    stdio: 'inherit',
+  })
+  return {
+    code: result.status ?? 1,
+    stdout: '',
+    stderr: '',
   }
 }
 
 async function runOrThrow(spawn: SpawnFn, argv: string[], cwd: string): Promise<void> {
   const { code, stdout, stderr } = await spawn(argv, cwd)
   if (code !== 0) {
-    throw new Error(`${argv.join(' ')} failed: ${stderr.trim() || stdout.trim()}`)
+    const detail = (stderr.trim() || stdout.trim())
+    throw new Error(detail ? `${argv.join(' ')} failed: ${detail}` : `${argv.join(' ')} failed`)
   }
 }
 
