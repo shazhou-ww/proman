@@ -19,44 +19,55 @@ async function writeJson(path: string, data: Record<string, unknown>): Promise<v
 }
 
 /**
- * Bump all package versions. If --type is given, use it; otherwise infer from changesets.
- * Returns the new version string.
+ * Bump package versions independently.
+ * --type: bump all packages with the given type.
+ * No --type: infer per-package bumps from changesets; only bump packages mentioned in changesets.
+ * Returns a map of package name → new version.
  */
-export async function bump(opts: BumpOptions = {}): Promise<string> {
+export async function bump(opts: BumpOptions = {}): Promise<Record<string, string>> {
   const cwd = opts.cwd ?? process.cwd()
   const cfg = loadConfig(cwd)
 
-  const firstPkg = cfg.packages[0]
-  if (!firstPkg) throw new Error('no packages configured')
-  const firstPkgPath = resolve(cwd, firstPkg.path, 'package.json')
-  const firstJson = await readJson(firstPkgPath)
-  const current = firstJson.version as string
-  if (!current) throw new Error(`missing version in ${firstPkgPath}`)
+  const bumped: Record<string, string> = {}
 
-  let bumpType: 'major' | 'minor' | 'patch'
   if (opts.type) {
-    bumpType = opts.type
+    // Explicit --type: bump all packages
+    for (const pkg of cfg.packages) {
+      const pkgPath = resolve(cwd, pkg.path, 'package.json')
+      const json = await readJson(pkgPath)
+      const current = json.version as string
+      if (!current) throw new Error(`missing version in ${pkgPath}`)
+      const version = bumpVersion(current, opts.type)
+      json.version = version
+      await writeJson(pkgPath, json)
+      bumped[pkg.name] = version
+    }
   } else {
+    // Infer from changesets: per-package independent bump
     const changesets = await readChangesets(cwd)
     if (changesets.length === 0) {
       throw new Error('no --type specified and no pending changesets found')
     }
-    const fixed = cfg.changeset?.fixed === true
-    const inferred = inferBump(changesets, fixed)
-    if (inferred === null) {
+    const bumpMap = inferBump(changesets)
+    if (Object.keys(bumpMap).length === 0) {
       throw new Error('no inferable bump from changeset entries')
     }
-    bumpType = inferred
+
+    const pkgByName = new Map(cfg.packages.map((p) => [p.name, p]))
+
+    for (const [pkgName, bumpType] of Object.entries(bumpMap)) {
+      const pkg = pkgByName.get(pkgName)
+      if (!pkg) continue // changeset mentions unknown package, skip
+      const pkgPath = resolve(cwd, pkg.path, 'package.json')
+      const json = await readJson(pkgPath)
+      const current = json.version as string
+      if (!current) throw new Error(`missing version in ${pkgPath}`)
+      const version = bumpVersion(current, bumpType)
+      json.version = version
+      await writeJson(pkgPath, json)
+      bumped[pkgName] = version
+    }
   }
 
-  const version = bumpVersion(current, bumpType)
-
-  for (const pkg of cfg.packages) {
-    const pkgPath = resolve(cwd, pkg.path, 'package.json')
-    const json = await readJson(pkgPath)
-    json.version = version
-    await writeJson(pkgPath, json)
-  }
-
-  return version
+  return bumped
 }

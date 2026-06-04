@@ -49,7 +49,7 @@ function isRcVersion(version: string): boolean {
 }
 
 /**
- * Publish all packages. Reads current version from package.json (bump first!).
+ * Publish all packages. Reads each package's version from its own package.json.
  * build → test → check → publish → changelog → commit → tag → push
  */
 export async function publish(opts: PublishOptions = {}): Promise<void> {
@@ -60,16 +60,16 @@ export async function publish(opts: PublishOptions = {}): Promise<void> {
 
   const cfg = loadConfig(cwd)
   const npm = opts.npm ?? createNpmRunner(cwd)
-  // Read version from first package
-  const firstPkg = cfg.packages[0]
-  if (!firstPkg) throw new Error('no packages configured')
-  const firstPkgPath = resolve(cwd, firstPkg.path, 'package.json')
-  const firstJson = await readJson(firstPkgPath)
-  const version = firstJson.version as string
-  if (!version) throw new Error(`missing version in ${firstPkgPath}`)
 
-  const isRc = isRcVersion(version)
-  const publishTag = isRc ? 'rc' : 'latest'
+  // Read each package's version
+  const versions: Record<string, string> = {}
+  for (const pkg of cfg.packages) {
+    const pkgPath = resolve(cwd, pkg.path, 'package.json')
+    const json = await readJson(pkgPath)
+    const version = json.version as string
+    if (!version) throw new Error(`missing version in ${pkgPath}`)
+    versions[pkg.name] = version
+  }
 
   // Build + test + check
   await npm.install()
@@ -86,6 +86,9 @@ export async function publish(opts: PublishOptions = {}): Promise<void> {
   const access = cfg.release?.access
   for (let i = 0; i < cfg.packages.length; i++) {
     const entry = cfg.packages[i] as { name: string; path: string }
+    const version = versions[entry.name] as string
+    const isRc = isRcVersion(version)
+    const publishTag = isRc ? 'rc' : 'latest'
     const pkgDir = resolve(cwd, entry.path)
     try {
       await npm.publish(pkgDir, { tag: publishTag, ...(access ? { access } : {}) })
@@ -101,8 +104,9 @@ export async function publish(opts: PublishOptions = {}): Promise<void> {
     }
   }
 
-  // Changelog (skip for rc)
-  if (!isRc) {
+  // Changelog (skip for RC versions — check if any package is RC)
+  const hasRc = Object.values(versions).some(isRcVersion)
+  if (!hasRc) {
     const changesets = await readChangesets(cwd)
     const pkgNames = new Set(cfg.packages.map((p) => p.name))
 
@@ -121,6 +125,7 @@ export async function publish(opts: PublishOptions = {}): Promise<void> {
       for (const pkg of cfg.packages) {
         const list = byPackage[pkg.name]
         if (!list || list.length === 0) continue
+        const version = versions[pkg.name] as string
         const entry = buildChangelogEntry({
           version,
           date,
@@ -141,15 +146,24 @@ export async function publish(opts: PublishOptions = {}): Promise<void> {
     }
   }
 
-  // Commit + tag + push
+  // Commit + tag + push (one tag per bumped package)
   await git.addAll()
-  await git.commit(`release: v${version}`, AUTHOR)
 
+  const allVersions = Object.entries(versions)
   const tagPrefix = cfg.release?.gitTagPrefix ?? 'v'
-  const tagName = `${tagPrefix}${version}`
-  await git.tag(tagName, `Release ${version}`)
+
+  // Use first package version as the commit message version for simplicity
+  const commitVersion = allVersions[0]?.[1] ?? 'unknown'
+  await git.commit(`release: v${commitVersion}`, AUTHOR)
+
+  for (const [pkgName, version] of allVersions) {
+    const tagName = `${pkgName}@${tagPrefix}${version}`
+    await git.tag(tagName, `Release ${pkgName}@${version}`)
+  }
   await git.pushTags()
   await git.push('main')
-  console.log(`✓ tagged ${tagName}`)
+  for (const [pkgName, version] of allVersions) {
+    console.log(`✓ tagged ${pkgName}@${tagPrefix}${version}`)
+  }
   console.log(`✓ pushed`)
 }

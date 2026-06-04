@@ -17,10 +17,10 @@ describe('validateConfig', () => {
     expect(() => validateConfig(42)).toThrow(/object/i)
   })
 
-  test('rejects non-boolean changeset.fixed', () => {
-    expect(() =>
-      validateConfig({ ...minimal, changeset: { fixed: 'yes' as unknown as boolean } }),
-    ).toThrow(/changeset\.fixed/)
+  test('ignores unknown changeset field (backward compat)', () => {
+    // Old configs with changeset.fixed should not throw
+    const r = validateConfig({ ...minimal, changeset: { fixed: true } })
+    expect(r.packages).toHaveLength(1)
   })
 
   test('rejects invalid release.access', () => {

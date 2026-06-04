@@ -244,7 +244,7 @@ describe('rc versions', () => {
     const { npm } = makeNpm()
     await publish({ cwd: tmp, git, npm, now: NOW })
 
-    expect(calls).toContain('tag v1.0.0-rc.1')
+    expect(calls).toContain('tag @test/core@v1.0.0-rc.1')
   })
 })
 
@@ -291,7 +291,7 @@ describe('git operations', () => {
 
     expect(calls).toContain('add')
     expect(calls).toContain('commit release: v0.3.0')
-    expect(calls).toContain('tag v0.3.0')
+    expect(calls).toContain('tag @test/core@v0.3.0')
     expect(calls).toContain('pushTags')
     expect(calls).toContain('push main')
     expect(getAuthor()).toBe('小橘 <xiaoju@shazhou.work>')
@@ -303,6 +303,6 @@ describe('git operations', () => {
     const { npm } = makeNpm()
     await publish({ cwd: tmp, git, npm, now: NOW })
 
-    expect(calls).toContain('tag release-0.2.0')
+    expect(calls).toContain('tag @test/core@release-0.2.0')
   })
 })

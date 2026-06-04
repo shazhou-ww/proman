@@ -6,10 +6,6 @@ export type PackageEntry = {
   type: PackageType
 }
 
-export type ChangesetConfig = {
-  fixed?: boolean
-}
-
 export type ReleaseConfig = {
   registry?: string
   access?: 'public' | 'restricted'
@@ -18,6 +14,5 @@ export type ReleaseConfig = {
 
 export type PromanConfig = {
   packages: PackageEntry[]
-  changeset?: ChangesetConfig
   release?: ReleaseConfig
 }
