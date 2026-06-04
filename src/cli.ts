@@ -8,7 +8,7 @@ import { bump } from './commands/bump.ts'
 import { publish } from './commands/publish.ts'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const VERSION = '0.4.3'
+const VERSION = '0.5.0'
 
 const HELP_TEXT = `Usage: proman <command> [options]
 
