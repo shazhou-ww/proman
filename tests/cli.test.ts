@@ -1,8 +1,10 @@
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+
 const __dirname = dirname(fileURLToPath(import.meta.url))
-import { describe, expect, test } from 'vitest'
+
 import { spawnSync } from 'node:child_process'
+import { describe, expect, test } from 'vitest'
 import { parseDeployArgs } from '../src/cli.ts'
 
 const CLI = resolve(__dirname, '..', 'dist', 'cli.js')

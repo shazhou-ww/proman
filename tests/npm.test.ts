@@ -1,10 +1,10 @@
 import { describe, expect, test } from 'vitest'
 import {
-  type SpawnFn,
   createNpmRunner,
   formatRcVersion,
   nextRcNumber,
   parseReleaseBranch,
+  type SpawnFn,
 } from '../src/utils/npm.ts'
 
 describe('parseReleaseBranch', () => {

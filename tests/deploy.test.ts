@@ -1,6 +1,8 @@
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+
 const __dirname = dirname(fileURLToPath(import.meta.url))
+
 import { describe, expect, test } from 'vitest'
 import { deploy } from '../src/commands/deploy.ts'
 import type { SpawnFn } from '../src/utils/npm.ts'
@@ -36,7 +38,14 @@ describe('deploy command', () => {
     await deploy({ cwd: FIX('typed'), spawn, env: 'staging' })
     expect(calls).toHaveLength(2)
     expect(calls[0]!.argv).toEqual([
-      'pnpm', 'exec', 'wrangler', 'pages', 'deploy', 'dist', '--env', 'staging',
+      'pnpm',
+      'exec',
+      'wrangler',
+      'pages',
+      'deploy',
+      'dist',
+      '--env',
+      'staging',
     ])
     expect(calls[1]!.argv).toEqual(['pnpm', 'exec', 'wrangler', 'deploy', '--env', 'staging'])
   })
@@ -51,16 +60,16 @@ describe('deploy command', () => {
 
   test('DEP4: --package on a lib throws not-deployable', async () => {
     const { spawn } = makeSpawn()
-    await expect(
-      deploy({ cwd: FIX('typed'), spawn, pkg: '@ocas/core' }),
-    ).rejects.toThrow(/not deployable|cannot deploy/i)
+    await expect(deploy({ cwd: FIX('typed'), spawn, pkg: '@ocas/core' })).rejects.toThrow(
+      /not deployable|cannot deploy/i,
+    )
   })
 
   test('DEP5: --package not found throws', async () => {
     const { spawn } = makeSpawn()
-    await expect(
-      deploy({ cwd: FIX('typed'), spawn, pkg: 'does-not-exist' }),
-    ).rejects.toThrow(/not found|unknown package/i)
+    await expect(deploy({ cwd: FIX('typed'), spawn, pkg: 'does-not-exist' })).rejects.toThrow(
+      /not found|unknown package/i,
+    )
   })
 
   test('DEP6: no-deployable fixture, no flags → no spawn, no throw', async () => {
@@ -83,9 +92,7 @@ describe('deploy command', () => {
       env: 'production',
     })
     expect(calls).toHaveLength(1)
-    expect(calls[0]!.argv).toEqual([
-      'pnpm', 'exec', 'wrangler', 'deploy', '--env', 'production',
-    ])
+    expect(calls[0]!.argv).toEqual(['pnpm', 'exec', 'wrangler', 'deploy', '--env', 'production'])
     expect(calls[0]!.cwd).toBe(resolve(FIX('typed'), 'packages/api'))
   })
 })

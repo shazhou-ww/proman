@@ -1,6 +1,6 @@
 import { resolve } from 'node:path'
 import { loadConfig } from '../config/index.ts'
-import { type SpawnFn, defaultSpawn } from '../utils/npm.ts'
+import { defaultSpawn, type SpawnFn } from '../utils/npm.ts'
 
 export type DeployCommandOptions = {
   cwd: string
@@ -12,7 +12,7 @@ export type DeployCommandOptions = {
 async function runOrThrow(spawn: SpawnFn, argv: string[], cwd: string): Promise<void> {
   const { code, stdout, stderr } = await spawn(argv, cwd)
   if (code !== 0) {
-    const detail = (stderr.trim() || stdout.trim())
+    const detail = stderr.trim() || stdout.trim()
     throw new Error(detail ? `${argv.join(' ')} failed: ${detail}` : `${argv.join(' ')} failed`)
   }
 }
