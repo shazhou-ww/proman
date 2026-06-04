@@ -305,4 +305,32 @@ describe('git operations', () => {
 
     expect(calls).toContain('tag @test/core@release-0.2.0')
   })
+
+  test('only tags packages mentioned in changesets', async () => {
+    await setupFixture(tmp, {
+      multiPkg: true,
+      withChangeset: true,
+      changesetBody: '---\n"@test/core": patch\n---\nFix core bug\n',
+    })
+    const { git, calls } = makeGit()
+    const { npm } = makeNpm()
+    await publish({ cwd: tmp, git, npm, now: NOW })
+
+    const tags = calls.filter((c) => c.startsWith('tag '))
+    expect(tags).toHaveLength(1)
+    expect(tags[0]).toContain('@test/core@v')
+    expect(tags.some((t) => t.includes('@test/cli'))).toBe(false)
+  })
+
+  test('tags all packages when no changesets (manual bump)', async () => {
+    await setupFixture(tmp, { multiPkg: true })
+    const { git, calls } = makeGit()
+    const { npm } = makeNpm()
+    await publish({ cwd: tmp, git, npm, now: NOW })
+
+    const tags = calls.filter((c) => c.startsWith('tag '))
+    expect(tags).toHaveLength(2)
+    expect(tags[0]).toContain('@test/core@v')
+    expect(tags[1]).toContain('@test/cli@v')
+  })
 })
