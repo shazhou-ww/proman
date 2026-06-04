@@ -104,65 +104,75 @@ export async function publish(opts: PublishOptions = {}): Promise<void> {
     }
   }
 
-  // Changelog (skip for RC versions — check if any package is RC)
-  const hasRc = Object.values(versions).some(isRcVersion)
-  if (!hasRc) {
-    const changesets = await readChangesets(cwd)
-    const pkgNames = new Set(cfg.packages.map((p) => p.name))
-
-    if (changesets.length > 0) {
-      const date = formatDate(now())
-      const byPackage: Record<string, Changeset[]> = {}
-      for (const cs of changesets) {
-        for (const pkg of Object.keys(cs.packages)) {
-          if (!pkgNames.has(pkg)) continue
-          const arr = byPackage[pkg] ?? []
-          arr.push(cs)
-          byPackage[pkg] = arr
-        }
-      }
-
-      for (const pkg of cfg.packages) {
-        const list = byPackage[pkg.name]
-        if (!list || list.length === 0) continue
-        const version = versions[pkg.name] as string
-        const entry = buildChangelogEntry({
-          version,
-          date,
-          bodies: list.map((c) => c.body),
-        })
-        const path = resolve(cwd, pkg.path, 'CHANGELOG.md')
-        let existing: string | null = null
-        if (await fileExists(path)) {
-          existing = await readFile(path, 'utf8')
-        }
-        await writeFile(path, prependChangelog(existing, entry))
-      }
-
-      // Delete consumed changesets
-      for (const cs of changesets) {
-        await unlink(cs.file)
+  // Determine which packages were bumped (from changesets)
+  const changesets = await readChangesets(cwd)
+  const cfgPkgNames = new Set(cfg.packages.map((p) => p.name))
+  const bumpedPackages = new Set<string>()
+  if (changesets.length > 0) {
+    for (const cs of changesets) {
+      for (const pkg of Object.keys(cs.packages)) {
+        if (cfgPkgNames.has(pkg)) bumpedPackages.add(pkg)
       }
     }
   }
+  // If no changesets (e.g. manual --type bump), treat all packages as bumped
+  if (bumpedPackages.size === 0) {
+    for (const pkg of cfg.packages) bumpedPackages.add(pkg.name)
+  }
 
-  // Commit + tag + push (one tag per bumped package)
+  // Changelog (skip for RC versions)
+  const hasRc = Object.values(versions).some(isRcVersion)
+  if (!hasRc && changesets.length > 0) {
+    const date = formatDate(now())
+    const byPackage: Record<string, Changeset[]> = {}
+    for (const cs of changesets) {
+      for (const pkg of Object.keys(cs.packages)) {
+        if (!cfgPkgNames.has(pkg)) continue
+        const arr = byPackage[pkg] ?? []
+        arr.push(cs)
+        byPackage[pkg] = arr
+      }
+    }
+
+    for (const pkg of cfg.packages) {
+      const list = byPackage[pkg.name]
+      if (!list || list.length === 0) continue
+      const version = versions[pkg.name] as string
+      const entry = buildChangelogEntry({
+        version,
+        date,
+        bodies: list.map((c) => c.body),
+      })
+      const path = resolve(cwd, pkg.path, 'CHANGELOG.md')
+      let existing: string | null = null
+      if (await fileExists(path)) {
+        existing = await readFile(path, 'utf8')
+      }
+      await writeFile(path, prependChangelog(existing, entry))
+    }
+
+    // Delete consumed changesets
+    for (const cs of changesets) {
+      await unlink(cs.file)
+    }
+  }
+
+  // Commit + tag + push (only tag bumped packages)
   await git.addAll()
 
-  const allVersions = Object.entries(versions)
   const tagPrefix = cfg.release?.gitTagPrefix ?? 'v'
+  const bumpedVersions = Object.entries(versions).filter(([name]) => bumpedPackages.has(name))
 
-  // Use first package version as the commit message version for simplicity
-  const commitVersion = allVersions[0]?.[1] ?? 'unknown'
+  const commitVersion = bumpedVersions[0]?.[1] ?? 'unknown'
   await git.commit(`release: v${commitVersion}`, AUTHOR)
 
-  for (const [pkgName, version] of allVersions) {
+  for (const [pkgName, version] of bumpedVersions) {
     const tagName = `${pkgName}@${tagPrefix}${version}`
     await git.tag(tagName, `Release ${pkgName}@${version}`)
   }
   await git.pushTags()
   await git.push('main')
-  for (const [pkgName, version] of allVersions) {
+  for (const [pkgName, version] of bumpedVersions) {
     console.log(`✓ tagged ${pkgName}@${tagPrefix}${version}`)
   }
   console.log(`✓ pushed`)
