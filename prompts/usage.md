@@ -51,9 +51,6 @@ packages:
     path: packages/api
     type: api
 
-changeset:
-  fixed: true          # all packages share the same version
-
 release:
   registry: https://registry.npmjs.org   # default
   access: public                          # public | restricted
@@ -83,11 +80,25 @@ proman format             # format with biome
 ### Version Management
 
 ```bash
-proman bump               # apply pending changesets
-proman bump --type patch  # force bump type (major | minor | patch)
+proman bump               # apply pending changesets (only bumps mentioned packages)
+proman bump --type patch  # force bump ALL packages (major | minor | patch)
 ```
 
-Changesets live in `.changeset/` and follow the standard changeset format. When `changeset.fixed: true`, all packages are bumped together.
+Changesets live in `.changeset/` and follow the standard changeset format.
+
+**Versioning is always independent.** Each changeset specifies which packages to bump and by how much:
+
+```yaml
+---
+"@myorg/core": minor
+"@myorg/cli": patch
+---
+Fix core bug and update CLI
+```
+
+- `proman bump` (no `--type`): only bumps packages mentioned in changesets; others stay unchanged.
+- `proman bump --type patch`: overrides and bumps **all** packages uniformly.
+- `proman publish`: only tags packages that were actually bumped.
 
 ### Publishing
 
@@ -101,7 +112,7 @@ The publish pipeline:
 2. Runs `proman test` (unless `--skip-tests`)
 3. Publishes changed packages to the configured registry
 4. Generates/updates CHANGELOG.md
-5. Creates a git tag (`v1.2.3`)
+5. Creates git tags for bumped packages (`@myorg/core@v1.2.3`)
 6. Pushes commits and tags
 
 ### Deployment
