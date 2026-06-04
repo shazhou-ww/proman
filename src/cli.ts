@@ -104,8 +104,10 @@ async function main(argv: string[]): Promise<void> {
   }
   if (cmd === 'bump') {
     const { type } = parseBumpArgs(argv.slice(1))
-    const version = await bump({ type })
-    console.log(version)
+    const bumped = await bump({ type })
+    for (const [name, version] of Object.entries(bumped)) {
+      console.log(`${name}@${version}`)
+    }
     return
   }
   if (cmd === 'publish') {

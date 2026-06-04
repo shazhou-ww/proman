@@ -39,23 +39,12 @@ export function validateConfig(value: unknown): PromanConfig {
     throw new Error(`${ERR_PREFIX} config must be an object`)
   }
 
-  const { packages, changeset, release } = value
+  const { packages, release } = value
 
   if (!Array.isArray(packages) || packages.length === 0) {
     throw new Error(`${ERR_PREFIX} packages must be a non-empty array`)
   }
   const validatedPackages = packages.map((p, i) => validatePackageEntry(p, i))
-
-  let validatedChangeset: PromanConfig['changeset']
-  if (changeset !== undefined) {
-    if (!isPlainObject(changeset)) {
-      throw new Error(`${ERR_PREFIX} changeset must be an object`)
-    }
-    if (changeset.fixed !== undefined && typeof changeset.fixed !== 'boolean') {
-      throw new Error(`${ERR_PREFIX} changeset.fixed must be a boolean`)
-    }
-    validatedChangeset = { fixed: changeset.fixed as boolean | undefined }
-  }
 
   let validatedRelease: PromanConfig['release']
   if (release !== undefined) {
@@ -82,7 +71,6 @@ export function validateConfig(value: unknown): PromanConfig {
   const result: PromanConfig = {
     packages: validatedPackages,
   }
-  if (validatedChangeset !== undefined) result.changeset = validatedChangeset
   if (validatedRelease !== undefined) result.release = validatedRelease
   return result
 }

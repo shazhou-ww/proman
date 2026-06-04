@@ -32,32 +32,40 @@ function cs(packages: Record<string, 'major' | 'minor' | 'patch'>, file = 'foo.m
 }
 
 describe('inferBump', () => {
-  test('empty list → null', () => {
-    expect(inferBump([], false)).toBeNull()
-    expect(inferBump([], true)).toBeNull()
+  test('empty list → empty map', () => {
+    expect(inferBump([])).toEqual({})
   })
 
-  test('all-empty package records → null', () => {
-    expect(inferBump([cs({}), cs({}, 'b.md')], false)).toBeNull()
-    expect(inferBump([cs({}), cs({}, 'b.md')], true)).toBeNull()
+  test('all-empty package records → empty map', () => {
+    expect(inferBump([cs({}), cs({}, 'b.md')])).toEqual({})
   })
 
-  test('global highest fixed=true: patch+minor → minor', () => {
-    expect(inferBump([cs({ a: 'patch' }), cs({ b: 'minor' }, 'b.md')], true)).toBe('minor')
+  test('single package patch', () => {
+    expect(inferBump([cs({ a: 'patch' })])).toEqual({ a: 'patch' })
   })
 
-  test('global highest fixed=true: minor+major → major', () => {
-    expect(inferBump([cs({ a: 'minor' }), cs({ b: 'major' }, 'b.md')], true)).toBe('major')
+  test('per-package: different bumps for different packages', () => {
+    expect(inferBump([cs({ a: 'patch' }), cs({ b: 'minor' }, 'b.md')])).toEqual({
+      a: 'patch',
+      b: 'minor',
+    })
   })
 
-  test('global highest fixed=false: same global behavior', () => {
-    expect(inferBump([cs({ a: 'patch' }), cs({ b: 'minor' }, 'b.md')], false)).toBe('minor')
-    expect(inferBump([cs({ a: 'minor' }), cs({ b: 'major' }, 'b.md')], false)).toBe('major')
+  test('same package across changesets → highest wins', () => {
+    expect(inferBump([cs({ a: 'patch' }), cs({ a: 'minor' }, 'b.md')])).toEqual({ a: 'minor' })
   })
 
-  test('within a single file with mixed bumps → highest', () => {
-    expect(inferBump([cs({ a: 'minor', b: 'major' })], true)).toBe('major')
-    expect(inferBump([cs({ a: 'minor', b: 'major' })], false)).toBe('major')
+  test('mixed bumps within a single changeset', () => {
+    expect(inferBump([cs({ a: 'minor', b: 'major' })])).toEqual({ a: 'minor', b: 'major' })
+  })
+
+  test('complex: multiple changesets, multiple packages, highest per-package', () => {
+    expect(
+      inferBump([
+        cs({ a: 'patch', b: 'minor' }),
+        cs({ a: 'major', c: 'patch' }, 'b.md'),
+      ]),
+    ).toEqual({ a: 'major', b: 'minor', c: 'patch' })
   })
 })
 

@@ -11,7 +11,6 @@ describe('loadConfig', () => {
     const cfg = loadConfig(FIX('valid'))
     expect(cfg.packages).toHaveLength(3)
     expect(cfg.packages.map((p) => p.name)).toEqual(['@ocas/core', '@ocas/fs', '@ocas/cli'])
-    expect(cfg.changeset?.fixed).toBe(true)
     expect(cfg.release?.registry).toBe('https://registry.npmjs.org')
     expect(cfg.release?.access).toBe('public')
     expect(cfg.release?.gitTagPrefix).toBe('v')

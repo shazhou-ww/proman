@@ -17,16 +17,17 @@ export function bumpVersion(current: string, bump: Bump): string {
 
 const ORDER: Record<Bump, number> = { patch: 1, minor: 2, major: 3 }
 
-export function inferBump(changesets: Changeset[], _fixed: boolean): Bump | null {
-  let best: Bump | null = null
+export function inferBump(changesets: Changeset[]): Record<string, Bump> {
+  const result: Record<string, Bump> = {}
   for (const c of changesets) {
-    for (const v of Object.values(c.packages)) {
-      if (best === null || ORDER[v] > ORDER[best]) {
-        best = v
+    for (const [pkg, bump] of Object.entries(c.packages)) {
+      const current = result[pkg]
+      if (current === undefined || ORDER[bump] > ORDER[current]) {
+        result[pkg] = bump
       }
     }
   }
-  return best
+  return result
 }
 
 const TAG_RE = /^v?(\d+\.\d+\.\d+(?:-[\w.+-]+)?)$/
