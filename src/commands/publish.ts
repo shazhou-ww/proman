@@ -61,14 +61,25 @@ export async function publish(opts: PublishOptions = {}): Promise<void> {
   const cfg = loadConfig(cwd)
   const npm = opts.npm ?? createNpmRunner(cwd)
 
-  // Read each package's version
-  const versions: Record<string, string> = {}
+  // Separate publishable (non-private) from private packages
+  type PkgJsonInfo = { version: string; private?: boolean }
+  const pkgJsonMap: Record<string, PkgJsonInfo> = {}
   for (const pkg of cfg.packages) {
     const pkgPath = resolve(cwd, pkg.path, 'package.json')
     const json = await readJson(pkgPath)
     const version = json.version as string
     if (!version) throw new Error(`missing version in ${pkgPath}`)
-    versions[pkg.name] = version
+    pkgJsonMap[pkg.name] = { version, private: json.private === true }
+  }
+
+  const publishablePackages = cfg.packages.filter(
+    (pkg) => pkg.private !== true && pkgJsonMap[pkg.name]?.private !== true,
+  )
+
+  // Read each publishable package's version
+  const versions: Record<string, string> = {}
+  for (const pkg of publishablePackages) {
+    versions[pkg.name] = pkgJsonMap[pkg.name]?.version as string
   }
 
   // Build + test + check
@@ -82,10 +93,15 @@ export async function publish(opts: PublishOptions = {}): Promise<void> {
   await npm.check()
   console.log('✓ check')
 
-  // Publish each package
+  // Publish each package, skipping private ones
   const access = cfg.release?.access
   for (let i = 0; i < cfg.packages.length; i++) {
-    const entry = cfg.packages[i] as { name: string; path: string }
+    const entry = cfg.packages[i]
+    const isPrivate = entry.private === true || pkgJsonMap[entry.name]?.private === true
+    if (isPrivate) {
+      console.log(`⏭ skipped ${entry.name} (private)`)
+      continue
+    }
     const version = versions[entry.name] as string
     const isRc = isRcVersion(version)
     const publishTag = isRc ? 'rc' : 'latest'
@@ -94,8 +110,12 @@ export async function publish(opts: PublishOptions = {}): Promise<void> {
       await npm.publish(pkgDir, { tag: publishTag, ...(access ? { access } : {}) })
       console.log(`✓ published ${entry.name}@${version}`)
     } catch (err) {
-      const published = cfg.packages.slice(0, i).map((p) => p.name)
-      const remaining = cfg.packages.slice(i + 1).map((p) => p.name)
+      const published = publishablePackages
+        .slice(0, publishablePackages.indexOf(entry))
+        .map((p) => p.name)
+      const remaining = publishablePackages
+        .slice(publishablePackages.indexOf(entry) + 1)
+        .map((p) => p.name)
       const msg =
         `publish failed for ${entry.name}: ${(err as Error).message}\n` +
         `  published: ${published.join(', ') || '(none)'}\n` +
@@ -106,18 +126,18 @@ export async function publish(opts: PublishOptions = {}): Promise<void> {
 
   // Determine which packages were bumped (from changesets)
   const changesets = await readChangesets(cwd)
-  const cfgPkgNames = new Set(cfg.packages.map((p) => p.name))
+  const publishablePkgNames = new Set(publishablePackages.map((p) => p.name))
   const bumpedPackages = new Set<string>()
   if (changesets.length > 0) {
     for (const cs of changesets) {
       for (const pkg of Object.keys(cs.packages)) {
-        if (cfgPkgNames.has(pkg)) bumpedPackages.add(pkg)
+        if (publishablePkgNames.has(pkg)) bumpedPackages.add(pkg)
       }
     }
   }
-  // If no changesets (e.g. manual --type bump), treat all packages as bumped
+  // If no changesets (e.g. manual --type bump), treat all publishable packages as bumped
   if (bumpedPackages.size === 0) {
-    for (const pkg of cfg.packages) bumpedPackages.add(pkg.name)
+    for (const pkg of publishablePackages) bumpedPackages.add(pkg.name)
   }
 
   // Changelog (skip for RC versions)
@@ -127,14 +147,14 @@ export async function publish(opts: PublishOptions = {}): Promise<void> {
     const byPackage: Record<string, Changeset[]> = {}
     for (const cs of changesets) {
       for (const pkg of Object.keys(cs.packages)) {
-        if (!cfgPkgNames.has(pkg)) continue
+        if (!publishablePkgNames.has(pkg)) continue
         const arr = byPackage[pkg] ?? []
         arr.push(cs)
         byPackage[pkg] = arr
       }
     }
 
-    for (const pkg of cfg.packages) {
+    for (const pkg of publishablePackages) {
       const list = byPackage[pkg.name]
       if (!list || list.length === 0) continue
       const version = versions[pkg.name] as string
@@ -157,7 +177,7 @@ export async function publish(opts: PublishOptions = {}): Promise<void> {
     }
   }
 
-  // Commit + tag + push (only tag bumped packages)
+  // Commit + tag + push (only tag bumped publishable packages)
   await git.addAll()
 
   const tagPrefix = cfg.release?.gitTagPrefix ?? 'v'

@@ -11,7 +11,7 @@ function validatePackageEntry(entry: unknown, index: number): PackageEntry {
   if (!isPlainObject(entry)) {
     throw new Error(`${ERR_PREFIX} packages[${index}] must be an object`)
   }
-  const { name, path, type } = entry
+  const { name, path, type, private: isPrivate } = entry
   if (typeof name !== 'string' || name.length === 0) {
     throw new Error(`${ERR_PREFIX} packages[${index}].name must be a non-empty string`)
   }
@@ -27,7 +27,12 @@ function validatePackageEntry(entry: unknown, index: number): PackageEntry {
     }
     resolvedType = type as PackageType
   }
-  return { name, path, type: resolvedType }
+  if (isPrivate !== undefined && typeof isPrivate !== 'boolean') {
+    throw new Error(`${ERR_PREFIX} packages[${index}].private must be a boolean`)
+  }
+  const result: PackageEntry = { name, path, type: resolvedType }
+  if (isPrivate === true) result.private = true
+  return result
 }
 
 /**

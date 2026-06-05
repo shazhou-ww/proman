@@ -4,6 +4,7 @@ export type PackageEntry = {
   name: string
   path: string
   type: PackageType
+  private?: boolean
 }
 
 export type ReleaseConfig = {
