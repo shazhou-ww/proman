@@ -18,7 +18,8 @@
   "scripts": {
     "test": "vitest run",
     "lint": "biome check .",
-    "build": "esbuild src/cli.ts --bundle --platform=node --format=esm --outfile=dist/cli.js --external:@biomejs/biome --external:typescript --external:yaml --external:wrangler --external:vite"
+    "build": "esbuild src/cli.ts --bundle --platform=node --format=esm --outfile=dist/cli.js --external:@biomejs/biome --external:typescript --external:yaml --external:wrangler --external:vite",
+    "prepare": "git config core.hooksPath .githooks"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
