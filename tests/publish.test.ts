@@ -110,11 +110,10 @@ async function setupFixture(tmp: string, opts: FixtureOptions = {}) {
     const dir = join(tmp, pkg.path)
     await mkdir(dir, { recursive: true })
     // Private via package.json when privatePkg === 'pkgjson-only' (or both)
-    const isPkgJsonPrivate =
-      pkg.name === '@test/private' && opts.privatePkg !== undefined
+    const isPkgJsonPrivate = pkg.name === '@test/private' && opts.privatePkg !== undefined
     const pkgJson: Record<string, unknown> = { name: pkg.name, version }
     if (isPkgJsonPrivate) pkgJson.private = true
-    await writeFile(join(dir, 'package.json'), JSON.stringify(pkgJson, null, 2) + '\n')
+    await writeFile(join(dir, 'package.json'), `${JSON.stringify(pkgJson, null, 2)}\n`)
   }
 
   if (opts.withChangeset) {
