@@ -93,15 +93,17 @@ export async function publish(opts: PublishOptions = {}): Promise<void> {
   await npm.check()
   console.log('✓ check')
 
-  // Publish each package, skipping private ones
-  const access = cfg.release?.access
-  for (let i = 0; i < cfg.packages.length; i++) {
-    const entry = cfg.packages[i]
-    const isPrivate = entry.private === true || pkgJsonMap[entry.name]?.private === true
-    if (isPrivate) {
-      console.log(`⏭ skipped ${entry.name} (private)`)
-      continue
+  // Log skipped private packages
+  for (const pkg of cfg.packages) {
+    if (pkg.private === true || pkgJsonMap[pkg.name]?.private === true) {
+      console.log(`⏭ skipped ${pkg.name} (private)`)
     }
+  }
+
+  // Publish each publishable package
+  const access = cfg.release?.access
+  for (let i = 0; i < publishablePackages.length; i++) {
+    const entry = publishablePackages[i]
     const version = versions[entry.name] as string
     const isRc = isRcVersion(version)
     const publishTag = isRc ? 'rc' : 'latest'
@@ -110,12 +112,8 @@ export async function publish(opts: PublishOptions = {}): Promise<void> {
       await npm.publish(pkgDir, { tag: publishTag, ...(access ? { access } : {}) })
       console.log(`✓ published ${entry.name}@${version}`)
     } catch (err) {
-      const published = publishablePackages
-        .slice(0, publishablePackages.indexOf(entry))
-        .map((p) => p.name)
-      const remaining = publishablePackages
-        .slice(publishablePackages.indexOf(entry) + 1)
-        .map((p) => p.name)
+      const published = publishablePackages.slice(0, i).map((p) => p.name)
+      const remaining = publishablePackages.slice(i + 1).map((p) => p.name)
       const msg =
         `publish failed for ${entry.name}: ${(err as Error).message}\n` +
         `  published: ${published.join(', ') || '(none)'}\n` +
