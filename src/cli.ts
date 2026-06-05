@@ -8,7 +8,8 @@ import { build, check, format, runTests } from './commands/dev.ts'
 import { publish } from './commands/publish.ts'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const VERSION = '0.6.0'
+const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf-8')) as { version: string }
+const VERSION = pkg.version
 
 const HELP_TEXT = `Usage: proman <command> [options]
 
