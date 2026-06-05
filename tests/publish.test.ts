@@ -74,7 +74,7 @@ type FixtureOptions = {
   access?: string
   multiPkg?: boolean
   gitTagPrefix?: string
-  privatePkg?: boolean | 'pkgjson-only'
+  privatePkg?: boolean | 'pkgjson-only' | 'yaml-only'
 }
 
 async function setupFixture(tmp: string, opts: FixtureOptions = {}) {
@@ -88,10 +88,10 @@ async function setupFixture(tmp: string, opts: FixtureOptions = {}) {
       ]
     : [{ name: '@test/core', path: 'packages/core', type: 'lib' }]
 
-  // Private package in proman.yaml (privatePkg === true)
+  // Private package in proman.yaml (privatePkg === true or 'yaml-only')
   if (opts.privatePkg) {
     const entry: PkgDef = { name: '@test/private', path: 'packages/private', type: 'lib' }
-    if (opts.privatePkg === true) entry.private = true
+    if (opts.privatePkg === true || opts.privatePkg === 'yaml-only') entry.private = true
     packages.push(entry)
   }
 
@@ -109,8 +109,11 @@ async function setupFixture(tmp: string, opts: FixtureOptions = {}) {
   for (const pkg of packages) {
     const dir = join(tmp, pkg.path)
     await mkdir(dir, { recursive: true })
-    // Private via package.json when privatePkg === 'pkgjson-only' (or both)
-    const isPkgJsonPrivate = pkg.name === '@test/private' && opts.privatePkg !== undefined
+    // Private via package.json when privatePkg is true or 'pkgjson-only' (not 'yaml-only')
+    const isPkgJsonPrivate =
+      pkg.name === '@test/private' &&
+      opts.privatePkg !== undefined &&
+      opts.privatePkg !== 'yaml-only'
     const pkgJson: Record<string, unknown> = { name: pkg.name, version }
     if (isPkgJsonPrivate) pkgJson.private = true
     await writeFile(join(dir, 'package.json'), `${JSON.stringify(pkgJson, null, 2)}\n`)
@@ -230,6 +233,25 @@ describe('publish packages', () => {
     await expect(publish({ cwd: tmp, git, npm, now: NOW })).rejects.toThrow(
       'publish failed for @test/cli',
     )
+  })
+
+  test('skips packages with private: true in proman.yaml only', async () => {
+    // privatePkg === 'yaml-only': proman.yaml has private: true, package.json does NOT
+    await setupFixture(tmp, { privatePkg: 'yaml-only' })
+    const { git } = makeGit()
+    const { npm, calls } = makeNpm()
+    const logs: string[] = []
+    const origLog = console.log
+    console.log = (...args: unknown[]) => logs.push(args.join(' '))
+    try {
+      await publish({ cwd: tmp, git, npm, now: NOW })
+    } finally {
+      console.log = origLog
+    }
+
+    const publishCalls = calls.filter((c) => c.startsWith('publish'))
+    expect(publishCalls.every((c) => !c.includes('private'))).toBe(true)
+    expect(logs.some((l) => l.includes('⏭ skipped @test/private (private)'))).toBe(true)
   })
 
   test('skips packages with private: true in proman.yaml', async () => {
