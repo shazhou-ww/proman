@@ -74,20 +74,28 @@ type FixtureOptions = {
   access?: string
   multiPkg?: boolean
   gitTagPrefix?: string
+  privatePkg?: boolean | 'pkgjson-only'
 }
 
 async function setupFixture(tmp: string, opts: FixtureOptions = {}) {
   const version = opts.version ?? '0.3.0'
-  const packages = opts.multiPkg
+
+  type PkgDef = { name: string; path: string; type: string; private?: boolean }
+  const packages: PkgDef[] = opts.multiPkg
     ? [
         { name: '@test/core', path: 'packages/core', type: 'lib' },
         { name: '@test/cli', path: 'packages/cli', type: 'cli' },
       ]
     : [{ name: '@test/core', path: 'packages/core', type: 'lib' }]
 
-  const config: Record<string, unknown> = {
-    packages,
+  // Private package in proman.yaml (privatePkg === true)
+  if (opts.privatePkg) {
+    const entry: PkgDef = { name: '@test/private', path: 'packages/private', type: 'lib' }
+    if (opts.privatePkg === true) entry.private = true
+    packages.push(entry)
   }
+
+  const config: Record<string, unknown> = { packages }
   if (opts.access || opts.gitTagPrefix) {
     const release: Record<string, string> = {}
     if (opts.access) release.access = opts.access
@@ -101,10 +109,12 @@ async function setupFixture(tmp: string, opts: FixtureOptions = {}) {
   for (const pkg of packages) {
     const dir = join(tmp, pkg.path)
     await mkdir(dir, { recursive: true })
-    await writeFile(
-      join(dir, 'package.json'),
-      JSON.stringify({ name: pkg.name, version }, null, 2) + '\n',
-    )
+    // Private via package.json when privatePkg === 'pkgjson-only' (or both)
+    const isPkgJsonPrivate =
+      pkg.name === '@test/private' && opts.privatePkg !== undefined
+    const pkgJson: Record<string, unknown> = { name: pkg.name, version }
+    if (isPkgJsonPrivate) pkgJson.private = true
+    await writeFile(join(dir, 'package.json'), JSON.stringify(pkgJson, null, 2) + '\n')
   }
 
   if (opts.withChangeset) {
@@ -221,6 +231,57 @@ describe('publish packages', () => {
     await expect(publish({ cwd: tmp, git, npm, now: NOW })).rejects.toThrow(
       'publish failed for @test/cli',
     )
+  })
+
+  test('skips packages with private: true in proman.yaml', async () => {
+    await setupFixture(tmp, { privatePkg: true })
+    const { git } = makeGit()
+    const { npm, calls } = makeNpm()
+    const logs: string[] = []
+    const origLog = console.log
+    console.log = (...args: unknown[]) => logs.push(args.join(' '))
+    try {
+      await publish({ cwd: tmp, git, npm, now: NOW })
+    } finally {
+      console.log = origLog
+    }
+
+    const publishCalls = calls.filter((c) => c.startsWith('publish'))
+    expect(publishCalls.every((c) => !c.includes('private'))).toBe(true)
+    expect(logs.some((l) => l.includes('⏭ skipped @test/private (private)'))).toBe(true)
+  })
+
+  test('skips packages with private: true in package.json', async () => {
+    // privatePkg === 'pkgjson-only': no private flag in proman.yaml, but package.json has "private": true
+    await setupFixture(tmp, { privatePkg: 'pkgjson-only' })
+    const { git } = makeGit()
+    const { npm, calls } = makeNpm()
+    const logs: string[] = []
+    const origLog = console.log
+    console.log = (...args: unknown[]) => logs.push(args.join(' '))
+    try {
+      await publish({ cwd: tmp, git, npm, now: NOW })
+    } finally {
+      console.log = origLog
+    }
+
+    const publishCalls = calls.filter((c) => c.startsWith('publish'))
+    expect(publishCalls.every((c) => !c.includes('private'))).toBe(true)
+    expect(logs.some((l) => l.includes('⏭ skipped @test/private (private)'))).toBe(true)
+  })
+
+  test('private packages do not break publish pipeline', async () => {
+    // Mix of normal + private: pipeline should succeed and only publish non-private ones
+    await setupFixture(tmp, { multiPkg: true, privatePkg: true })
+    const { git } = makeGit()
+    const { npm, calls } = makeNpm()
+    await expect(publish({ cwd: tmp, git, npm, now: NOW })).resolves.toBeUndefined()
+
+    const publishCalls = calls.filter((c) => c.startsWith('publish'))
+    expect(publishCalls).toHaveLength(2)
+    expect(publishCalls.some((c) => c.includes('core'))).toBe(true)
+    expect(publishCalls.some((c) => c.includes('cli'))).toBe(true)
+    expect(publishCalls.every((c) => !c.includes('private'))).toBe(true)
   })
 })
 
