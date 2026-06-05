@@ -48,6 +48,13 @@ function isRcVersion(version: string): boolean {
   return /-rc\.\d+$/.test(version)
 }
 
+const ALREADY_PUBLISHED_RE =
+  /cannot publish over the previously published versions|you cannot publish over the previously published version/i
+
+function isAlreadyPublished(message: string): boolean {
+  return ALREADY_PUBLISHED_RE.test(message)
+}
+
 /**
  * Publish all packages. Reads each package's version from its own package.json.
  * build → test → check → publish → changelog → commit → tag → push
@@ -112,10 +119,15 @@ export async function publish(opts: PublishOptions = {}): Promise<void> {
       await npm.publish(pkgDir, { tag: publishTag, ...(access ? { access } : {}) })
       console.log(`✓ published ${entry.name}@${version}`)
     } catch (err) {
+      const message = (err as Error).message
+      if (isAlreadyPublished(message)) {
+        console.log(`⏭ skipped ${entry.name}@${version} (already published)`)
+        continue
+      }
       const published = publishablePackages.slice(0, i).map((p) => p.name)
       const remaining = publishablePackages.slice(i + 1).map((p) => p.name)
       const msg =
-        `publish failed for ${entry.name}: ${(err as Error).message}\n` +
+        `publish failed for ${entry.name}: ${message}\n` +
         `  published: ${published.join(', ') || '(none)'}\n` +
         `  unpublished: ${[entry.name, ...remaining].join(', ')}`
       throw new Error(msg)
