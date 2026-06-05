@@ -235,6 +235,46 @@ describe('publish packages', () => {
     )
   })
 
+  test('skips already-published packages and continues', async () => {
+    await setupFixture(tmp, { multiPkg: true })
+    const { git } = makeGit()
+    const published: string[] = []
+    const { npm } = makeNpm({
+      publish: async (dir) => {
+        if (dir.includes('core')) {
+          throw new Error('You cannot publish over the previously published versions: 0.3.0')
+        }
+        published.push(dir)
+      },
+    })
+    const logs: string[] = []
+    const origLog = console.log
+    console.log = (...args: unknown[]) => logs.push(args.join(' '))
+    try {
+      await publish({ cwd: tmp, git, npm, now: NOW })
+    } finally {
+      console.log = origLog
+    }
+
+    expect(logs.some((l) => l.includes('⏭ skipped @test/core@0.3.0 (already published)'))).toBe(
+      true,
+    )
+    expect(published.some((d) => d.includes('cli'))).toBe(true)
+  })
+
+  test('real publish errors still abort', async () => {
+    await setupFixture(tmp, { multiPkg: true })
+    const { git } = makeGit()
+    const { npm } = makeNpm({
+      publish: async (dir) => {
+        if (dir.includes('core')) throw new Error('npm ERR! 401 Unauthorized')
+      },
+    })
+    await expect(publish({ cwd: tmp, git, npm, now: NOW })).rejects.toThrow(
+      'publish failed for @test/core',
+    )
+  })
+
   test('skips packages with private: true in proman.yaml only', async () => {
     // privatePkg === 'yaml-only': proman.yaml has private: true, package.json does NOT
     await setupFixture(tmp, { privatePkg: 'yaml-only' })
