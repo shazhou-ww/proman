@@ -65,12 +65,17 @@ export const defaultSpawn: SpawnFn = async (argv, cwd) => {
   const { spawnSync } = await import('node:child_process')
   const result = spawnSync(argv[0] as string, argv.slice(1), {
     cwd,
-    stdio: 'inherit',
+    stdio: 'pipe',
   })
+  const stdout = result.stdout?.toString() ?? ''
+  const stderr = result.stderr?.toString() ?? ''
+  // Forward captured output to terminal so users still see progress
+  if (stdout) process.stdout.write(stdout)
+  if (stderr) process.stderr.write(stderr)
   return {
     code: result.status ?? 1,
-    stdout: '',
-    stderr: '',
+    stdout,
+    stderr,
   }
 }
 
