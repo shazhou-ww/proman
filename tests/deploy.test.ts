@@ -26,18 +26,18 @@ describe('deploy command', () => {
     await deploy({ cwd: FIX('typed'), spawn })
     expect(calls).toHaveLength(2)
     // webui
-    expect(calls[0]!.argv).toEqual(['pnpm', 'exec', 'wrangler', 'pages', 'deploy', 'dist'])
-    expect(calls[0]!.cwd).toBe(resolve(FIX('typed'), 'packages/dashboard'))
+    expect(calls[0]?.argv).toEqual(['pnpm', 'exec', 'wrangler', 'pages', 'deploy', 'dist'])
+    expect(calls[0]?.cwd).toBe(resolve(FIX('typed'), 'packages/dashboard'))
     // api
-    expect(calls[1]!.argv).toEqual(['pnpm', 'exec', 'wrangler', 'deploy'])
-    expect(calls[1]!.cwd).toBe(resolve(FIX('typed'), 'packages/api'))
+    expect(calls[1]?.argv).toEqual(['pnpm', 'exec', 'wrangler', 'deploy'])
+    expect(calls[1]?.cwd).toBe(resolve(FIX('typed'), 'packages/api'))
   })
 
   test('DEP2: --env staging appends to both', async () => {
     const { spawn, calls } = makeSpawn()
     await deploy({ cwd: FIX('typed'), spawn, env: 'staging' })
     expect(calls).toHaveLength(2)
-    expect(calls[0]!.argv).toEqual([
+    expect(calls[0]?.argv).toEqual([
       'pnpm',
       'exec',
       'wrangler',
@@ -47,15 +47,15 @@ describe('deploy command', () => {
       '--env',
       'staging',
     ])
-    expect(calls[1]!.argv).toEqual(['pnpm', 'exec', 'wrangler', 'deploy', '--env', 'staging'])
+    expect(calls[1]?.argv).toEqual(['pnpm', 'exec', 'wrangler', 'deploy', '--env', 'staging'])
   })
 
   test('DEP3: --package selects only one webui', async () => {
     const { spawn, calls } = makeSpawn()
     await deploy({ cwd: FIX('typed'), spawn, pkg: '@myapp/dashboard' })
     expect(calls).toHaveLength(1)
-    expect(calls[0]!.argv).toEqual(['pnpm', 'exec', 'wrangler', 'pages', 'deploy', 'dist'])
-    expect(calls[0]!.cwd).toBe(resolve(FIX('typed'), 'packages/dashboard'))
+    expect(calls[0]?.argv).toEqual(['pnpm', 'exec', 'wrangler', 'pages', 'deploy', 'dist'])
+    expect(calls[0]?.cwd).toBe(resolve(FIX('typed'), 'packages/dashboard'))
   })
 
   test('DEP4: --package on a lib throws not-deployable', async () => {
@@ -92,7 +92,7 @@ describe('deploy command', () => {
       env: 'production',
     })
     expect(calls).toHaveLength(1)
-    expect(calls[0]!.argv).toEqual(['pnpm', 'exec', 'wrangler', 'deploy', '--env', 'production'])
-    expect(calls[0]!.cwd).toBe(resolve(FIX('typed'), 'packages/api'))
+    expect(calls[0]?.argv).toEqual(['pnpm', 'exec', 'wrangler', 'deploy', '--env', 'production'])
+    expect(calls[0]?.cwd).toBe(resolve(FIX('typed'), 'packages/api'))
   })
 })

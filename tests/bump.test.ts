@@ -31,7 +31,7 @@ async function setupFixture(tmp: string, opts: FixtureOptions = {}) {
     const pkgVersion = opts.versions?.[pkg.name] ?? version
     await writeFile(
       join(dir, 'package.json'),
-      JSON.stringify({ name: pkg.name, version: pkgVersion }, null, 2) + '\n',
+      `${JSON.stringify({ name: pkg.name, version: pkgVersion }, null, 2)}\n`,
     )
   }
 
@@ -170,7 +170,7 @@ describe('bump', () => {
     const cliPkg = join(tmp, 'packages/cli/package.json')
     const json = JSON.parse(await readFile(cliPkg, 'utf8'))
     json.dependencies = { '@test/core': 'workspace:*' }
-    await writeFile(cliPkg, JSON.stringify(json, null, 2) + '\n')
+    await writeFile(cliPkg, `${JSON.stringify(json, null, 2)}\n`)
 
     await bump({ type: 'patch', cwd: tmp })
 
