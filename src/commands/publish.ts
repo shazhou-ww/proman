@@ -12,7 +12,6 @@ export type PublishOptions = {
   cwd?: string
   git?: GitOps
   npm?: NpmRunner
-  now?: () => Date
 }
 
 const AUTHOR = '小橘 <xiaoju@shazhou.work>'

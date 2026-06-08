@@ -16,8 +16,8 @@ pnpm add -D @shazhou/proman
 | `proman test` | Run tests (vitest) |
 | `proman check` | Lint with biome |
 | `proman format` | Format with biome |
-| `proman bump` | Bump package versions (from changesets or --type) |
-| `proman publish` | Full release pipeline: build → test → check → publish → changelog → tag → push |
+| `proman bump` | Bump package versions (from changesets or --type), generate CHANGELOG.md, delete consumed changesets |
+| `proman publish` | Full release pipeline: build → test → check → publish → tag → push |
 | `proman deploy` | Deploy webui/api packages (wrangler) |
 
 ### Deploy
