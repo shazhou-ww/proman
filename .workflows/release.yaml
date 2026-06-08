@@ -33,7 +33,7 @@ roles:
 
       1d. Pending changesets exist:
       ```bash
-      ls .changeset/*.md 2>/dev/null | grep -v README.md
+      find .changeset -name '*.md' ! -name 'README.md' -type f
       ```
       If no `.md` files found (excluding README.md), output `$status: not_ready` with reason "no pending changesets".
 
@@ -84,8 +84,8 @@ roles:
       # Build the new entry
       ENTRY="## v${NEW_VERSION} ($(date +%Y-%m-%d))\n"
       for f in $(find .changeset -name '*.md' ! -name 'README.md' -type f); do
-        # Extract content after the closing --- of YAML frontmatter
-        BODY=$(sed -n '/^---$/,/^---$/!p' "$f" | sed '/^$/d')
+        # Extract body content after the closing --- of YAML frontmatter
+        BODY=$(sed -n '/^---$/,/^---$/d; p' "$f" | sed '/^$/d')
         if [ -n "${BODY}" ]; then
           ENTRY="${ENTRY}\n${BODY}"
         fi
@@ -102,14 +102,11 @@ roles:
 
       **Step 5 — Build and test:**
       ```bash
-      pnpm build
-      pnpm test
-      pnpm lint
+      pnpm build || { git checkout -- package.json pnpm-lock.yaml CHANGELOG.md; echo "build failed"; exit 1; }
+      pnpm test || { git checkout -- package.json pnpm-lock.yaml CHANGELOG.md; echo "test failed"; exit 1; }
+      pnpm lint || { git checkout -- package.json pnpm-lock.yaml CHANGELOG.md; echo "lint failed"; exit 1; }
       ```
-      If any fails, revert version changes and output `$status: failed`:
-      ```bash
-      git checkout -- package.json CHANGELOG.md
-      ```
+      If any fails, output `$status: failed` with reason.
 
       **Step 6 — Publish to npm:**
       ```bash
@@ -117,7 +114,7 @@ roles:
       ```
       If publish fails, revert version changes and output `$status: failed`:
       ```bash
-      git checkout -- package.json CHANGELOG.md
+      git checkout -- package.json pnpm-lock.yaml CHANGELOG.md
       ```
 
       **Step 7 — Commit, tag, and push:**
