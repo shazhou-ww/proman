@@ -2,13 +2,16 @@
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { build, check, format, runTests } from './commands/dev.ts'
-import { deploy } from './commands/deploy.ts'
 import { bump } from './commands/bump.ts'
+import { deploy } from './commands/deploy.ts'
+import { build, check, format, runTests } from './commands/dev.ts'
 import { publish } from './commands/publish.ts'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const VERSION = '0.6.0'
+const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf-8')) as {
+  version: string
+}
+const VERSION = pkg.version
 
 const HELP_TEXT = `Usage: proman <command> [options]
 
@@ -28,6 +31,7 @@ Commands:
 Options:
   -h, --help            Show this help
   -v, --version         Show version
+  --force               Force run build/test/check (skip fingerprint cache)
 `
 
 export function parseBumpArgs(argv: string[]): {
@@ -86,14 +90,21 @@ export function parseDeployArgs(argv: string[]): { pkg?: string; env?: string } 
   return { pkg, env }
 }
 
-function parseDevArgs(argv: string[]): void {
+export function parseDevArgs(argv: string[]): { force: boolean } {
+  let force = false
   for (const a of argv) {
-    throw new Error(`unknown flag: ${a}`)
+    if (a === '--force') {
+      force = true
+    } else {
+      throw new Error(`unknown flag: ${a}`)
+    }
   }
+  return { force }
 }
 
 async function main(argv: string[]): Promise<void> {
   const cmd = argv[0]
+  const isCI = process.env.CI === 'true' || process.env.CI === '1'
   if (cmd === undefined || cmd === '--help' || cmd === '-h') {
     process.stdout.write(HELP_TEXT)
     return
@@ -116,8 +127,8 @@ async function main(argv: string[]): Promise<void> {
     return
   }
   if (cmd === 'build') {
-    parseDevArgs(argv.slice(1))
-    await build({ cwd: process.cwd() })
+    const { force } = parseDevArgs(argv.slice(1))
+    await build({ cwd: process.cwd(), force: isCI || force })
     return
   }
   if (cmd === 'deploy') {
@@ -126,13 +137,13 @@ async function main(argv: string[]): Promise<void> {
     return
   }
   if (cmd === 'test') {
-    parseDevArgs(argv.slice(1))
-    await runTests({ cwd: process.cwd() })
+    const { force } = parseDevArgs(argv.slice(1))
+    await runTests({ cwd: process.cwd(), force: isCI || force })
     return
   }
   if (cmd === 'check') {
-    parseDevArgs(argv.slice(1))
-    await check({ cwd: process.cwd() })
+    const { force } = parseDevArgs(argv.slice(1))
+    await check({ cwd: process.cwd(), force: isCI || force })
     return
   }
   if (cmd === 'format') {
@@ -143,20 +154,14 @@ async function main(argv: string[]): Promise<void> {
   if (cmd === 'prompt') {
     const sub = argv[1]
     if (sub === 'usage') {
-      process.stdout.write(
-        readFileSync(join(__dirname, '..', 'prompts', 'usage.md'), 'utf-8'),
-      )
+      process.stdout.write(readFileSync(join(__dirname, '..', 'prompts', 'usage.md'), 'utf-8'))
       return
     }
     if (sub === 'setup') {
-      process.stdout.write(
-        readFileSync(join(__dirname, '..', 'prompts', 'setup.md'), 'utf-8'),
-      )
+      process.stdout.write(readFileSync(join(__dirname, '..', 'prompts', 'setup.md'), 'utf-8'))
       return
     }
-    throw new Error(
-      `Unknown prompt subcommand: ${sub ?? '(none)'}. Available: usage, setup`,
-    )
+    throw new Error(`Unknown prompt subcommand: ${sub ?? '(none)'}. Available: usage, setup`)
   }
   throw new Error(`unknown command: ${cmd}`)
 }

@@ -1,10 +1,11 @@
 import { describe, expect, test } from 'vitest'
 import {
-  type SpawnFn,
   createNpmRunner,
+  defaultSpawn,
   formatRcVersion,
   nextRcNumber,
   parseReleaseBranch,
+  type SpawnFn,
 } from '../src/utils/npm.ts'
 
 describe('parseReleaseBranch', () => {
@@ -139,5 +140,32 @@ describe('createNpmRunner publish argv', () => {
     const last = calls[calls.length - 1] as string[]
     expect(last).toContain('--access')
     expect(last).toContain('public')
+  })
+})
+
+describe('defaultSpawn captures output via pipe', () => {
+  test('captures stdout from a real process', async () => {
+    const result = await defaultSpawn(['echo', 'hello world'], process.cwd())
+    expect(result.code).toBe(0)
+    expect(result.stdout.trim()).toBe('hello world')
+  })
+
+  test('captures stderr from a real process', async () => {
+    const result = await defaultSpawn(['node', '-e', 'process.stderr.write("oops")'], process.cwd())
+    expect(result.code).toBe(0)
+    expect(result.stderr).toBe('oops')
+  })
+
+  test('returns non-zero exit code with stderr captured', async () => {
+    const result = await defaultSpawn(
+      [
+        'node',
+        '-e',
+        'process.stderr.write("You cannot publish over the previously published versions: 0.1.1"); process.exit(1)',
+      ],
+      process.cwd(),
+    )
+    expect(result.code).toBe(1)
+    expect(result.stderr).toContain('cannot publish over the previously published versions')
   })
 })

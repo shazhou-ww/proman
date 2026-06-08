@@ -1,10 +1,10 @@
-import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import {
-  type PkgManifest,
   applyWorkspaceRewrites,
+  type PkgManifest,
   rewriteWorkspaceDeps,
 } from '../src/utils/workspace.ts'
 

@@ -1,14 +1,8 @@
-import { readFile, stat, unlink, writeFile } from 'node:fs/promises'
+import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { loadConfig } from '../config/load-config.ts'
-import {
-  type Changeset,
-  buildChangelogEntry,
-  prependChangelog,
-  readChangesets,
-} from '../utils/changeset.ts'
-import { type GitOps, createGitOps } from '../utils/git.ts'
-import { type NpmRunner, createNpmRunner } from '../utils/npm.ts'
+import { createGitOps, type GitOps } from '../utils/git.ts'
+import { createNpmRunner, type NpmRunner } from '../utils/npm.ts'
 
 export type { GitOps } from '../utils/git.ts'
 export type { NpmRunner } from '../utils/npm.ts'
@@ -18,57 +12,57 @@ export type PublishOptions = {
   cwd?: string
   git?: GitOps
   npm?: NpmRunner
-  now?: () => Date
 }
 
 const AUTHOR = '小橘 <xiaoju@shazhou.work>'
-
-function formatDate(d: Date): string {
-  const y = d.getUTCFullYear()
-  const m = String(d.getUTCMonth() + 1).padStart(2, '0')
-  const day = String(d.getUTCDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
-}
 
 async function readJson(path: string): Promise<Record<string, unknown>> {
   const text = await readFile(path, 'utf8')
   return JSON.parse(text) as Record<string, unknown>
 }
 
-async function fileExists(path: string): Promise<boolean> {
-  try {
-    await stat(path)
-    return true
-  } catch {
-    return false
-  }
-}
-
 function isRcVersion(version: string): boolean {
   return /-rc\.\d+$/.test(version)
 }
 
+const ALREADY_PUBLISHED_RE =
+  /cannot publish over the previously published versions|you cannot publish over the previously published version/i
+
+function isAlreadyPublished(message: string): boolean {
+  return ALREADY_PUBLISHED_RE.test(message)
+}
+
 /**
  * Publish all packages. Reads each package's version from its own package.json.
- * build → test → check → publish → changelog → commit → tag → push
+ * build → test → check → publish → commit → tag → push
  */
 export async function publish(opts: PublishOptions = {}): Promise<void> {
   const { skipTests = false } = opts
   const cwd = opts.cwd ?? process.cwd()
   const git = opts.git ?? createGitOps(cwd)
-  const now = opts.now ?? (() => new Date())
 
   const cfg = loadConfig(cwd)
   const npm = opts.npm ?? createNpmRunner(cwd)
 
-  // Read each package's version
-  const versions: Record<string, string> = {}
+  // Separate publishable (non-private) from private packages
+  type PkgJsonInfo = { version: string; private?: boolean }
+  const pkgJsonMap: Record<string, PkgJsonInfo> = {}
   for (const pkg of cfg.packages) {
     const pkgPath = resolve(cwd, pkg.path, 'package.json')
     const json = await readJson(pkgPath)
     const version = json.version as string
     if (!version) throw new Error(`missing version in ${pkgPath}`)
-    versions[pkg.name] = version
+    pkgJsonMap[pkg.name] = { version, private: json.private === true }
+  }
+
+  const publishablePackages = cfg.packages.filter(
+    (pkg) => pkg.private !== true && pkgJsonMap[pkg.name]?.private !== true,
+  )
+
+  // Read each publishable package's version
+  const versions: Record<string, string> = {}
+  for (const pkg of publishablePackages) {
+    versions[pkg.name] = pkgJsonMap[pkg.name]?.version as string
   }
 
   // Build + test + check
@@ -82,10 +76,17 @@ export async function publish(opts: PublishOptions = {}): Promise<void> {
   await npm.check()
   console.log('✓ check')
 
-  // Publish each package
+  // Log skipped private packages
+  for (const pkg of cfg.packages) {
+    if (pkg.private === true || pkgJsonMap[pkg.name]?.private === true) {
+      console.log(`⏭ skipped ${pkg.name} (private)`)
+    }
+  }
+
+  // Publish each publishable package
   const access = cfg.release?.access
-  for (let i = 0; i < cfg.packages.length; i++) {
-    const entry = cfg.packages[i] as { name: string; path: string }
+  for (let i = 0; i < publishablePackages.length; i++) {
+    const entry = publishablePackages[i]
     const version = versions[entry.name] as string
     const isRc = isRcVersion(version)
     const publishTag = isRc ? 'rc' : 'latest'
@@ -94,74 +95,27 @@ export async function publish(opts: PublishOptions = {}): Promise<void> {
       await npm.publish(pkgDir, { tag: publishTag, ...(access ? { access } : {}) })
       console.log(`✓ published ${entry.name}@${version}`)
     } catch (err) {
-      const published = cfg.packages.slice(0, i).map((p) => p.name)
-      const remaining = cfg.packages.slice(i + 1).map((p) => p.name)
+      const message = (err as Error).message
+      if (isAlreadyPublished(message)) {
+        console.log(`⏭ skipped ${entry.name}@${version} (already published)`)
+        continue
+      }
+      const published = publishablePackages.slice(0, i).map((p) => p.name)
+      const remaining = publishablePackages.slice(i + 1).map((p) => p.name)
       const msg =
-        `publish failed for ${entry.name}: ${(err as Error).message}\n` +
+        `publish failed for ${entry.name}: ${message}\n` +
         `  published: ${published.join(', ') || '(none)'}\n` +
         `  unpublished: ${[entry.name, ...remaining].join(', ')}`
       throw new Error(msg)
     }
   }
 
-  // Determine which packages were bumped (from changesets)
-  const changesets = await readChangesets(cwd)
-  const cfgPkgNames = new Set(cfg.packages.map((p) => p.name))
-  const bumpedPackages = new Set<string>()
-  if (changesets.length > 0) {
-    for (const cs of changesets) {
-      for (const pkg of Object.keys(cs.packages)) {
-        if (cfgPkgNames.has(pkg)) bumpedPackages.add(pkg)
-      }
-    }
-  }
-  // If no changesets (e.g. manual --type bump), treat all packages as bumped
-  if (bumpedPackages.size === 0) {
-    for (const pkg of cfg.packages) bumpedPackages.add(pkg.name)
-  }
-
-  // Changelog (skip for RC versions)
-  const hasRc = Object.values(versions).some(isRcVersion)
-  if (!hasRc && changesets.length > 0) {
-    const date = formatDate(now())
-    const byPackage: Record<string, Changeset[]> = {}
-    for (const cs of changesets) {
-      for (const pkg of Object.keys(cs.packages)) {
-        if (!cfgPkgNames.has(pkg)) continue
-        const arr = byPackage[pkg] ?? []
-        arr.push(cs)
-        byPackage[pkg] = arr
-      }
-    }
-
-    for (const pkg of cfg.packages) {
-      const list = byPackage[pkg.name]
-      if (!list || list.length === 0) continue
-      const version = versions[pkg.name] as string
-      const entry = buildChangelogEntry({
-        version,
-        date,
-        bodies: list.map((c) => c.body),
-      })
-      const path = resolve(cwd, pkg.path, 'CHANGELOG.md')
-      let existing: string | null = null
-      if (await fileExists(path)) {
-        existing = await readFile(path, 'utf8')
-      }
-      await writeFile(path, prependChangelog(existing, entry))
-    }
-
-    // Delete consumed changesets
-    for (const cs of changesets) {
-      await unlink(cs.file)
-    }
-  }
-
-  // Commit + tag + push (only tag bumped packages)
+  // Commit + tag + push all publishable packages
+  // Changelog generation and changeset cleanup are now bump's responsibility (issue #74)
   await git.addAll()
 
   const tagPrefix = cfg.release?.gitTagPrefix ?? 'v'
-  const bumpedVersions = Object.entries(versions).filter(([name]) => bumpedPackages.has(name))
+  const bumpedVersions = Object.entries(versions)
 
   const commitVersion = bumpedVersions[0]?.[1] ?? 'unknown'
   await git.commit(`release: v${commitVersion}`, AUTHOR)

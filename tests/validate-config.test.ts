@@ -64,5 +64,4 @@ describe('validateConfig', () => {
       }),
     ).toThrow(/packages\[0\]\.type/)
   })
-
 })

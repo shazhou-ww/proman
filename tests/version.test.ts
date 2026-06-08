@@ -61,10 +61,7 @@ describe('inferBump', () => {
 
   test('complex: multiple changesets, multiple packages, highest per-package', () => {
     expect(
-      inferBump([
-        cs({ a: 'patch', b: 'minor' }),
-        cs({ a: 'major', c: 'patch' }, 'b.md'),
-      ]),
+      inferBump([cs({ a: 'patch', b: 'minor' }), cs({ a: 'major', c: 'patch' }, 'b.md')]),
     ).toEqual({ a: 'major', b: 'minor', c: 'patch' })
   })
 })

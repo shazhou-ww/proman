@@ -1,0 +1,4 @@
+packageManager: bun
+packages:
+  - name: "@test/a"
+    path: packages/a
