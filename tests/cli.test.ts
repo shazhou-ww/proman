@@ -5,7 +5,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 
 import { spawnSync } from 'node:child_process'
 import { describe, expect, test } from 'vitest'
-import { parseDeployArgs } from '../src/cli.ts'
+import { parseDeployArgs, parseDevArgs } from '../src/cli.ts'
 
 const CLI = resolve(__dirname, '..', 'dist', 'cli.js')
 
@@ -108,5 +108,49 @@ describe('parseDeployArgs', () => {
   })
   test('D-parse-6: unknown flag', () => {
     expect(() => parseDeployArgs(['--bad'])).toThrow(/unknown flag/)
+  })
+})
+
+describe('parseDevArgs — --force', () => {
+  test('FP-CLI1: parseDevArgs(["--force"]) returns { force: true }', () => {
+    expect(parseDevArgs(['--force'])).toEqual({ force: true })
+  })
+
+  test('FP-CLI2: parseDevArgs([]) returns { force: false }', () => {
+    expect(parseDevArgs([])).toEqual({ force: false })
+  })
+
+  test('FP-CLI3: unknown flag still throws', () => {
+    expect(() => parseDevArgs(['--bogus'])).toThrow(/unknown flag/)
+  })
+})
+
+describe('cli --force integration', () => {
+  test('FP-CLI4: --help text mentions --force for build/test/check', () => {
+    const { code, stdout } = runCli(['--help'])
+    expect(code).toBe(0)
+    expect(stdout).toContain('--force')
+  })
+})
+
+describe('parseDevArgs — --force', () => {
+  test('FP-CLI1: parseDevArgs(["--force"]) returns { force: true }', () => {
+    expect(parseDevArgs(['--force'])).toEqual({ force: true })
+  })
+
+  test('FP-CLI2: parseDevArgs([]) returns { force: false }', () => {
+    expect(parseDevArgs([])).toEqual({ force: false })
+  })
+
+  test('FP-CLI3: unknown flag still throws', () => {
+    expect(() => parseDevArgs(['--bogus'])).toThrow(/unknown flag/)
+  })
+})
+
+describe('cli --force', () => {
+  test('FP-CLI4: --help text mentions --force', () => {
+    const { code, stdout } = runCli(['--help'])
+    expect(code).toBe(0)
+    expect(stdout).toContain('--force')
   })
 })
