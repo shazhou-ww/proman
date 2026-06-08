@@ -5,8 +5,6 @@ import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { parsePublishArgs } from '../src/cli.ts'
 import { type GitOps, type NpmRunner, publish } from '../src/commands/publish.ts'
 
-const NOW = () => new Date('2026-06-02T00:00:00Z')
-
 function makeGit(overrides: Partial<GitOps> = {}) {
   const calls: string[] = []
   let lastAuthor: string | undefined
@@ -162,7 +160,7 @@ describe('build pipeline', () => {
     await setupFixture(tmp)
     const { git } = makeGit()
     const { npm, calls } = makeNpm()
-    await publish({ cwd: tmp, git, npm, now: NOW })
+    await publish({ cwd: tmp, git, npm })
 
     const pipeline = calls.filter((c) => ['install', 'build', 'test', 'check'].includes(c))
     expect(pipeline).toEqual(['install', 'build', 'test', 'check'])
@@ -172,7 +170,7 @@ describe('build pipeline', () => {
     await setupFixture(tmp)
     const { git } = makeGit()
     const { npm, calls } = makeNpm()
-    await publish({ cwd: tmp, git, npm, skipTests: true, now: NOW })
+    await publish({ cwd: tmp, git, npm, skipTests: true })
 
     expect(calls).not.toContain('test')
     expect(calls).toContain('build')
@@ -187,7 +185,7 @@ describe('publish packages', () => {
     await setupFixture(tmp, { version: '0.3.0' })
     const { git } = makeGit()
     const { npm, calls } = makeNpm()
-    await publish({ cwd: tmp, git, npm, now: NOW })
+    await publish({ cwd: tmp, git, npm })
 
     expect(calls).toContain(`publish ${join(tmp, 'packages/core')} tag=latest`)
   })
@@ -196,7 +194,7 @@ describe('publish packages', () => {
     await setupFixture(tmp, { version: '0.3.0-rc.1' })
     const { git } = makeGit()
     const { npm, calls } = makeNpm()
-    await publish({ cwd: tmp, git, npm, now: NOW })
+    await publish({ cwd: tmp, git, npm })
 
     expect(calls).toContain(`publish ${join(tmp, 'packages/core')} tag=rc`)
   })
@@ -205,7 +203,7 @@ describe('publish packages', () => {
     await setupFixture(tmp, { access: 'public' })
     const { git } = makeGit()
     const { npm, calls } = makeNpm()
-    await publish({ cwd: tmp, git, npm, now: NOW })
+    await publish({ cwd: tmp, git, npm })
 
     expect(calls).toContain(`publish ${join(tmp, 'packages/core')} tag=latest access=public`)
   })
@@ -214,7 +212,7 @@ describe('publish packages', () => {
     await setupFixture(tmp, { multiPkg: true })
     const { git } = makeGit()
     const { npm, calls } = makeNpm()
-    await publish({ cwd: tmp, git, npm, now: NOW })
+    await publish({ cwd: tmp, git, npm })
 
     const publishes = calls.filter((c) => c.startsWith('publish'))
     expect(publishes).toHaveLength(2)
@@ -230,9 +228,7 @@ describe('publish packages', () => {
         if (dir.includes('cli')) throw new Error('auth failed')
       },
     })
-    await expect(publish({ cwd: tmp, git, npm, now: NOW })).rejects.toThrow(
-      'publish failed for @test/cli',
-    )
+    await expect(publish({ cwd: tmp, git, npm })).rejects.toThrow('publish failed for @test/cli')
   })
 
   test('skips already-published packages and continues', async () => {
@@ -251,7 +247,7 @@ describe('publish packages', () => {
     const origLog = console.log
     console.log = (...args: unknown[]) => logs.push(args.join(' '))
     try {
-      await publish({ cwd: tmp, git, npm, now: NOW })
+      await publish({ cwd: tmp, git, npm })
     } finally {
       console.log = origLog
     }
@@ -270,9 +266,7 @@ describe('publish packages', () => {
         if (dir.includes('core')) throw new Error('npm ERR! 401 Unauthorized')
       },
     })
-    await expect(publish({ cwd: tmp, git, npm, now: NOW })).rejects.toThrow(
-      'publish failed for @test/core',
-    )
+    await expect(publish({ cwd: tmp, git, npm })).rejects.toThrow('publish failed for @test/core')
   })
 
   test('skips packages with private: true in proman.yaml only', async () => {
@@ -284,7 +278,7 @@ describe('publish packages', () => {
     const origLog = console.log
     console.log = (...args: unknown[]) => logs.push(args.join(' '))
     try {
-      await publish({ cwd: tmp, git, npm, now: NOW })
+      await publish({ cwd: tmp, git, npm })
     } finally {
       console.log = origLog
     }
@@ -302,7 +296,7 @@ describe('publish packages', () => {
     const origLog = console.log
     console.log = (...args: unknown[]) => logs.push(args.join(' '))
     try {
-      await publish({ cwd: tmp, git, npm, now: NOW })
+      await publish({ cwd: tmp, git, npm })
     } finally {
       console.log = origLog
     }
@@ -321,7 +315,7 @@ describe('publish packages', () => {
     const origLog = console.log
     console.log = (...args: unknown[]) => logs.push(args.join(' '))
     try {
-      await publish({ cwd: tmp, git, npm, now: NOW })
+      await publish({ cwd: tmp, git, npm })
     } finally {
       console.log = origLog
     }
@@ -336,7 +330,7 @@ describe('publish packages', () => {
     await setupFixture(tmp, { multiPkg: true, privatePkg: true })
     const { git } = makeGit()
     const { npm, calls } = makeNpm()
-    await expect(publish({ cwd: tmp, git, npm, now: NOW })).resolves.toBeUndefined()
+    await expect(publish({ cwd: tmp, git, npm })).resolves.toBeUndefined()
 
     const publishCalls = calls.filter((c) => c.startsWith('publish'))
     expect(publishCalls).toHaveLength(2)
@@ -349,12 +343,13 @@ describe('publish packages', () => {
 // ── RC version ──
 
 describe('rc versions', () => {
-  test('skips changelog for rc', async () => {
+  test('rc version does not affect changesets (publish never touches them)', async () => {
     await setupFixture(tmp, { version: '0.3.0-rc.1', withChangeset: true })
     const { git } = makeGit()
     const { npm } = makeNpm()
-    await publish({ cwd: tmp, git, npm, now: NOW })
+    await publish({ cwd: tmp, git, npm })
 
+    // Changesets untouched by publish regardless of RC
     const csDir = join(tmp, '.changeset')
     const files = await readdir(csDir)
     expect(files).toContain('add-feature.md')
@@ -364,39 +359,35 @@ describe('rc versions', () => {
     await setupFixture(tmp, { version: '1.0.0-rc.1' })
     const { git, calls } = makeGit()
     const { npm } = makeNpm()
-    await publish({ cwd: tmp, git, npm, now: NOW })
+    await publish({ cwd: tmp, git, npm })
 
     expect(calls).toContain('tag @test/core@v1.0.0-rc.1')
   })
 })
 
-// ── Changelog ──
+// ── Changelog (moved to bump in issue #74) ──
 
 describe('changelog', () => {
-  test('generates changelog and deletes changesets for stable release', async () => {
+  test('does not generate changelog even with changesets present', async () => {
     await setupFixture(tmp, { version: '0.2.1', withChangeset: true })
     const { git } = makeGit()
     const { npm } = makeNpm()
-    await publish({ cwd: tmp, git, npm, now: NOW })
+    await publish({ cwd: tmp, git, npm })
 
-    const changelog = await readFile(join(tmp, 'packages/core/CHANGELOG.md'), 'utf8')
-    expect(changelog).toContain('0.2.1')
-    expect(changelog).toContain('2026-06-02')
-    expect(changelog).toContain('Fix bug Y')
+    // No CHANGELOG.md created — that's bump's job now
+    const exists = await readFile(join(tmp, 'packages/core/CHANGELOG.md'), 'utf8').catch(() => null)
+    expect(exists).toBeNull()
+  })
+
+  test('does not delete changeset files', async () => {
+    await setupFixture(tmp, { version: '0.2.1', withChangeset: true })
+    const { git } = makeGit()
+    const { npm } = makeNpm()
+    await publish({ cwd: tmp, git, npm })
 
     const csDir = join(tmp, '.changeset')
     const files = await readdir(csDir)
-    expect(files.filter((f) => f.endsWith('.md') && f !== 'config.md')).toHaveLength(0)
-  })
-
-  test('no changelog if no changesets', async () => {
-    await setupFixture(tmp)
-    const { git } = makeGit()
-    const { npm } = makeNpm()
-    await publish({ cwd: tmp, git, npm, now: NOW })
-
-    const exists = await readFile(join(tmp, 'packages/core/CHANGELOG.md'), 'utf8').catch(() => null)
-    expect(exists).toBeNull()
+    expect(files).toContain('add-feature.md')
   })
 })
 
@@ -407,7 +398,7 @@ describe('git operations', () => {
     await setupFixture(tmp, { version: '0.3.0' })
     const { git, calls, getAuthor } = makeGit()
     const { npm } = makeNpm()
-    await publish({ cwd: tmp, git, npm, now: NOW })
+    await publish({ cwd: tmp, git, npm })
 
     expect(calls).toContain('add')
     expect(calls).toContain('commit release: v0.3.0')
@@ -421,12 +412,12 @@ describe('git operations', () => {
     await setupFixture(tmp, { version: '0.2.0', gitTagPrefix: 'release-' })
     const { git, calls } = makeGit()
     const { npm } = makeNpm()
-    await publish({ cwd: tmp, git, npm, now: NOW })
+    await publish({ cwd: tmp, git, npm })
 
     expect(calls).toContain('tag @test/core@release-0.2.0')
   })
 
-  test('only tags packages mentioned in changesets', async () => {
+  test('tags all publishable packages (publish does not read changesets)', async () => {
     await setupFixture(tmp, {
       multiPkg: true,
       withChangeset: true,
@@ -434,19 +425,19 @@ describe('git operations', () => {
     })
     const { git, calls } = makeGit()
     const { npm } = makeNpm()
-    await publish({ cwd: tmp, git, npm, now: NOW })
+    await publish({ cwd: tmp, git, npm })
 
     const tags = calls.filter((c) => c.startsWith('tag '))
-    expect(tags).toHaveLength(1)
+    expect(tags).toHaveLength(2)
     expect(tags[0]).toContain('@test/core@v')
-    expect(tags.some((t) => t.includes('@test/cli'))).toBe(false)
+    expect(tags[1]).toContain('@test/cli@v')
   })
 
   test('tags all packages when no changesets (manual bump)', async () => {
     await setupFixture(tmp, { multiPkg: true })
     const { git, calls } = makeGit()
     const { npm } = makeNpm()
-    await publish({ cwd: tmp, git, npm, now: NOW })
+    await publish({ cwd: tmp, git, npm })
 
     const tags = calls.filter((c) => c.startsWith('tag '))
     expect(tags).toHaveLength(2)

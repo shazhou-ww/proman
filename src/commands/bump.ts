@@ -1,12 +1,18 @@
-import { readFile, writeFile } from 'node:fs/promises'
+import { readFile, stat, unlink, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { loadConfig } from '../config/load-config.ts'
-import { readChangesets } from '../utils/changeset.ts'
+import {
+  buildChangelogEntry,
+  type Changeset,
+  prependChangelog,
+  readChangesets,
+} from '../utils/changeset.ts'
 import { bumpVersion, inferBump } from '../utils/version.ts'
 
 export type BumpOptions = {
   type?: 'major' | 'minor' | 'patch'
   cwd?: string
+  now?: () => Date
 }
 
 async function readJson(path: string): Promise<Record<string, unknown>> {
@@ -18,6 +24,22 @@ async function writeJson(path: string, data: Record<string, unknown>): Promise<v
   await writeFile(path, `${JSON.stringify(data, null, 2)}\n`)
 }
 
+function formatDate(d: Date): string {
+  const y = d.getUTCFullYear()
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0')
+  const day = String(d.getUTCDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+async function fileExists(path: string): Promise<boolean> {
+  try {
+    await stat(path)
+    return true
+  } catch {
+    return false
+  }
+}
+
 /**
  * Bump package versions independently.
  * --type: bump all packages with the given type.
@@ -26,6 +48,7 @@ async function writeJson(path: string, data: Record<string, unknown>): Promise<v
  */
 export async function bump(opts: BumpOptions = {}): Promise<Record<string, string>> {
   const cwd = opts.cwd ?? process.cwd()
+  const now = opts.now ?? (() => new Date())
   const cfg = loadConfig(cwd)
 
   const bumped: Record<string, string> = {}
@@ -66,6 +89,41 @@ export async function bump(opts: BumpOptions = {}): Promise<Record<string, strin
       json.version = version
       await writeJson(pkgPath, json)
       bumped[pkgName] = version
+    }
+
+    // Generate CHANGELOG.md per bumped package
+    const date = formatDate(now())
+    const byPackage: Record<string, Changeset[]> = {}
+    for (const cs of changesets) {
+      for (const pkg of Object.keys(cs.packages)) {
+        if (!pkgByName.has(pkg)) continue
+        const arr = byPackage[pkg] ?? []
+        arr.push(cs)
+        byPackage[pkg] = arr
+      }
+    }
+
+    for (const [pkgName, version] of Object.entries(bumped)) {
+      const list = byPackage[pkgName]
+      if (!list || list.length === 0) continue
+      const pkg = pkgByName.get(pkgName)
+      if (!pkg) continue
+      const entry = buildChangelogEntry({
+        version,
+        date,
+        bodies: list.map((c) => c.body),
+      })
+      const path = resolve(cwd, pkg.path, 'CHANGELOG.md')
+      let existing: string | null = null
+      if (await fileExists(path)) {
+        existing = await readFile(path, 'utf8')
+      }
+      await writeFile(path, prependChangelog(existing, entry))
+    }
+
+    // Delete consumed changeset files
+    for (const cs of changesets) {
+      await unlink(cs.file)
     }
   }
 
