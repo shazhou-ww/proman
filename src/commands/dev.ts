@@ -58,7 +58,12 @@ function chmodBinEntries(pkgDir: string): void {
   const json = JSON.parse(readFileSync(pkgJsonPath, 'utf-8'))
   const bin: unknown = json.bin
   if (bin == null) return
-  const paths = typeof bin === 'string' ? [bin] : typeof bin === 'object' ? Object.values(bin as Record<string, string>) : []
+  const paths =
+    typeof bin === 'string'
+      ? [bin]
+      : typeof bin === 'object'
+        ? Object.values(bin as Record<string, string>)
+        : []
   for (const rel of paths) {
     const abs = resolve(pkgDir, rel)
     if (existsSync(abs)) {

@@ -1,4 +1,4 @@
-import { chmodSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -185,13 +185,19 @@ describe('build — chmod +x bin entries', () => {
     rmSync(tmpDir, { recursive: true, force: true })
   })
 
-  function writeTmpProject(bins: Record<string, string> | string | undefined): { cwd: string; spawn: SpawnFn } {
+  function writeTmpProject(bins: Record<string, string> | string | undefined): {
+    cwd: string
+    spawn: SpawnFn
+  } {
     const pkgDir = join(tmpDir, 'packages', 'mycli')
     const distDir = join(pkgDir, 'dist')
     mkdirSync(distDir, { recursive: true })
 
     // proman.yaml
-    writeFileSync(join(tmpDir, 'proman.yaml'), 'packages:\n  - name: "@test/cli"\n    path: packages/mycli\n    type: cli\n')
+    writeFileSync(
+      join(tmpDir, 'proman.yaml'),
+      'packages:\n  - name: "@test/cli"\n    path: packages/mycli\n    type: cli\n',
+    )
 
     // package.json with bin
     const pkgJson: Record<string, unknown> = { name: '@test/cli', version: '1.0.0' }
