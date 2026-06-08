@@ -1,0 +1,16 @@
+---
+scenario: "Publish runs full release pipeline"
+feature: publish
+tags: [release, npm, git]
+---
+
+## Given
+- Packages have been bumped to new versions
+
+## When
+- `proman publish` runs
+
+## Then
+- Pipeline executes in order: build → test → check → npm publish → git commit → git tag → git push
+- Each package is published with `pnpm publish --no-git-checks`
+- Git tags follow `@scope/name@vX.Y.Z` format
