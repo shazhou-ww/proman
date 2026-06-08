@@ -1,6 +1,6 @@
 {
   "name": "@shazhou/proman",
-  "version": "0.6.3",
+  "version": "0.6.4",
   "type": "module",
   "description": "Project manager CLI for TypeScript monorepos",
   "keywords": [
