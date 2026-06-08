@@ -31,6 +31,7 @@ Commands:
 Options:
   -h, --help            Show this help
   -v, --version         Show version
+  --force               Force run build/test/check (skip fingerprint cache)
 `
 
 export function parseBumpArgs(argv: string[]): {
@@ -89,14 +90,21 @@ export function parseDeployArgs(argv: string[]): { pkg?: string; env?: string } 
   return { pkg, env }
 }
 
-function parseDevArgs(argv: string[]): void {
+export function parseDevArgs(argv: string[]): { force: boolean } {
+  let force = false
   for (const a of argv) {
-    throw new Error(`unknown flag: ${a}`)
+    if (a === '--force') {
+      force = true
+    } else {
+      throw new Error(`unknown flag: ${a}`)
+    }
   }
+  return { force }
 }
 
 async function main(argv: string[]): Promise<void> {
   const cmd = argv[0]
+  const isCI = process.env.CI === 'true' || process.env.CI === '1'
   if (cmd === undefined || cmd === '--help' || cmd === '-h') {
     process.stdout.write(HELP_TEXT)
     return
@@ -119,8 +127,8 @@ async function main(argv: string[]): Promise<void> {
     return
   }
   if (cmd === 'build') {
-    parseDevArgs(argv.slice(1))
-    await build({ cwd: process.cwd() })
+    const { force } = parseDevArgs(argv.slice(1))
+    await build({ cwd: process.cwd(), force: isCI || force })
     return
   }
   if (cmd === 'deploy') {
@@ -129,13 +137,13 @@ async function main(argv: string[]): Promise<void> {
     return
   }
   if (cmd === 'test') {
-    parseDevArgs(argv.slice(1))
-    await runTests({ cwd: process.cwd() })
+    const { force } = parseDevArgs(argv.slice(1))
+    await runTests({ cwd: process.cwd(), force: isCI || force })
     return
   }
   if (cmd === 'check') {
-    parseDevArgs(argv.slice(1))
-    await check({ cwd: process.cwd() })
+    const { force } = parseDevArgs(argv.slice(1))
+    await check({ cwd: process.cwd(), force: isCI || force })
     return
   }
   if (cmd === 'format') {
