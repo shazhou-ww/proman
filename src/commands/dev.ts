@@ -1,4 +1,4 @@
-import { existsSync, rmSync } from 'node:fs'
+import { chmodSync, existsSync, readFileSync, rmSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { loadConfig } from '../config/index.ts'
 import { defaultSpawn, type SpawnFn } from '../utils/npm.ts'
@@ -46,6 +46,24 @@ export async function build(opts: DevCommandOptions): Promise<void> {
         break
     }
     await runOrThrow(spawn, argv, pkgDir)
+
+    // chmod +x bin entries so linked CLIs survive tsc rebuild
+    chmodBinEntries(pkgDir)
+  }
+}
+
+function chmodBinEntries(pkgDir: string): void {
+  const pkgJsonPath = join(pkgDir, 'package.json')
+  if (!existsSync(pkgJsonPath)) return
+  const json = JSON.parse(readFileSync(pkgJsonPath, 'utf-8'))
+  const bin: unknown = json.bin
+  if (bin == null) return
+  const paths = typeof bin === 'string' ? [bin] : typeof bin === 'object' ? Object.values(bin as Record<string, string>) : []
+  for (const rel of paths) {
+    const abs = resolve(pkgDir, rel)
+    if (existsSync(abs)) {
+      chmodSync(abs, 0o755)
+    }
   }
 }
 
