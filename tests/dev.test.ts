@@ -1,9 +1,11 @@
-import { dirname, resolve } from 'node:path'
+import { chmodSync, mkdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
-import { describe, expect, test } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { build, check, format, runTests } from '../src/commands/dev.ts'
 import type { SpawnFn } from '../src/utils/npm.ts'
 
@@ -166,5 +168,79 @@ describe('format command', () => {
   test('C6: format throws on non-zero exit', async () => {
     const { spawn } = makeSpawn(1, '', 'fail')
     await expect(format({ cwd: FIX('valid'), spawn })).rejects.toThrow()
+  })
+})
+
+// ── chmod +x bin entries after build ────────────────────────────────────────
+
+describe('build — chmod +x bin entries', () => {
+  let tmpDir: string
+
+  beforeEach(() => {
+    tmpDir = resolve(tmpdir(), `proman-chmod-test-${Date.now()}`)
+    mkdirSync(tmpDir, { recursive: true })
+  })
+
+  afterEach(() => {
+    rmSync(tmpDir, { recursive: true, force: true })
+  })
+
+  function writeTmpProject(bins: Record<string, string> | string | undefined): {
+    cwd: string
+    spawn: SpawnFn
+  } {
+    const pkgDir = join(tmpDir, 'packages', 'mycli')
+    const distDir = join(pkgDir, 'dist')
+    mkdirSync(distDir, { recursive: true })
+
+    // proman.yaml
+    writeFileSync(
+      join(tmpDir, 'proman.yaml'),
+      'packages:\n  - name: "@test/cli"\n    path: packages/mycli\n    type: cli\n',
+    )
+
+    // package.json with bin
+    const pkgJson: Record<string, unknown> = { name: '@test/cli', version: '1.0.0' }
+    if (bins !== undefined) pkgJson.bin = bins
+    writeFileSync(join(pkgDir, 'package.json'), JSON.stringify(pkgJson))
+
+    // Mock spawn that recreates dist/cli.js with 644 (simulates tsc output)
+    const spawn: SpawnFn = async (_argv, cwd) => {
+      const out = join(cwd, 'dist')
+      mkdirSync(out, { recursive: true })
+      writeFileSync(join(out, 'cli.js'), '#!/usr/bin/env node\n')
+      chmodSync(join(out, 'cli.js'), 0o644)
+      return { code: 0, stdout: '', stderr: '' }
+    }
+
+    return { cwd: tmpDir, spawn }
+  }
+
+  test('B1: bin object — chmod +x applied after build', async () => {
+    const { cwd, spawn } = writeTmpProject({ mycli: './dist/cli.js' })
+    await build({ cwd, spawn })
+
+    const mode = statSync(join(cwd, 'packages/mycli/dist/cli.js')).mode & 0o777
+    expect(mode).toBe(0o755)
+  })
+
+  test('B2: bin string — chmod +x applied after build', async () => {
+    const { cwd, spawn } = writeTmpProject('./dist/cli.js')
+    await build({ cwd, spawn })
+
+    const mode = statSync(join(cwd, 'packages/mycli/dist/cli.js')).mode & 0o777
+    expect(mode).toBe(0o755)
+  })
+
+  test('B3: no bin field — no crash', async () => {
+    const { cwd, spawn } = writeTmpProject(undefined)
+    await build({ cwd, spawn })
+    // Should not throw
+  })
+
+  test('B4: bin points to missing file — no crash', async () => {
+    const { cwd, spawn } = writeTmpProject({ mycli: './dist/nonexistent.js' })
+    await build({ cwd, spawn })
+    // Should not throw
   })
 })
