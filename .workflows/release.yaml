@@ -33,16 +33,16 @@ roles:
 
       1d. Pending changesets exist:
       ```bash
-      ls .changeset/*.md 2>/dev/null | grep -v README.md | grep -v config.json
+      ls .changeset/*.md 2>/dev/null | grep -v README.md
       ```
-      If no `.md` files found (excluding README.md and config.json), output `$status: not_ready` with reason "no pending changesets".
+      If no `.md` files found (excluding README.md), output `$status: not_ready` with reason "no pending changesets".
 
       1e. CI is green on latest commit:
       ```bash
       GITEA_TOKEN=$(cfg get GITEA_TOKEN)
       HEAD_SHA=$(git rev-parse HEAD)
-      CI_STATE=$(curl -s "https://git.shazhou.work/api/v1/repos/<owner/repo>/commits/$HEAD_SHA/status" \
-        -H "Authorization: token $GITEA_TOKEN" | jq -r '.state')
+      CI_STATE=$(curl -s "https://git.shazhou.work/api/v1/repos/<owner/repo>/commits/${HEAD_SHA}/status" \
+        -H "Authorization: token ${GITEA_TOKEN}" | jq -r '.state')
       ```
       If state is not `success`, wait up to 5 minutes (poll every 30s). If still not `success`, output `$status: not_ready`.
 
@@ -50,7 +50,7 @@ roles:
 
       Read the changeset file(s) to determine bump type:
       ```bash
-      cat .changeset/*.md | grep -v README
+      find .changeset -name '*.md' ! -name 'README.md' -exec cat {} +
       ```
       The YAML frontmatter specifies `"<package>": patch|minor|major`.
       Take the highest bump level across all changesets.
@@ -66,16 +66,36 @@ roles:
 
       Update package.json version:
       ```bash
-      npm version <new-version> --no-git-tag-version
+      npm version "${NEW_VERSION}" --no-git-tag-version
+      if [ $? -ne 0 ]; then
+        echo "npm version failed"
+        # output $status: failed with reason
+        exit 1
+      fi
       ```
 
       **Step 4 — Generate CHANGELOG entry:**
 
-      Prepend a new section to CHANGELOG.md with:
-      - Version number and date
-      - Entries from the changeset files, grouped by type (feat/fix/chore/refactor)
+      Prepend a new section to CHANGELOG.md with the version number, date, and entries from changeset files grouped by type:
+      ```bash
+      # Initialize CHANGELOG.md if missing
+      [[ ! -f CHANGELOG.md ]] && echo "# Changelog" > CHANGELOG.md
 
-      Delete consumed changeset files (keep README.md and config.json):
+      # Build the new entry
+      ENTRY="## v${NEW_VERSION} ($(date +%Y-%m-%d))\n"
+      for f in $(find .changeset -name '*.md' ! -name 'README.md' -type f); do
+        # Extract content after the closing --- of YAML frontmatter
+        BODY=$(sed -n '/^---$/,/^---$/!p' "$f" | sed '/^$/d')
+        if [ -n "${BODY}" ]; then
+          ENTRY="${ENTRY}\n${BODY}"
+        fi
+      done
+
+      # Prepend to CHANGELOG.md
+      { echo -e "${ENTRY}\n"; cat CHANGELOG.md; } > CHANGELOG.md.tmp && mv CHANGELOG.md.tmp CHANGELOG.md
+      ```
+
+      Delete consumed changeset files (keep README.md):
       ```bash
       find .changeset -name '*.md' ! -name 'README.md' -delete
       ```
@@ -86,13 +106,19 @@ roles:
       pnpm test
       pnpm lint
       ```
-      If any fails, revert version changes and output `$status: failed`.
+      If any fails, revert version changes and output `$status: failed`:
+      ```bash
+      git checkout -- package.json CHANGELOG.md
+      ```
 
       **Step 6 — Publish to npm:**
       ```bash
       npm publish --access public
       ```
-      If publish fails, revert version changes and output `$status: failed`.
+      If publish fails, revert version changes and output `$status: failed`:
+      ```bash
+      git checkout -- package.json CHANGELOG.md
+      ```
 
       **Step 7 — Commit, tag, and push:**
       ```bash
@@ -117,7 +143,7 @@ roles:
       ```bash
       GITEA_TOKEN=$(cfg get GITEA_TOKEN)
       curl -s "https://git.shazhou.work/api/v1/repos/<owner/repo>/tags" \
-        -H "Authorization: token $GITEA_TOKEN" | jq -r '.[].name' | head -5
+        -H "Authorization: token ${GITEA_TOKEN}" | jq -r '.[].name' | head -5
       ```
 
       If verification fails, output `$status: verify_failed`.
