@@ -228,9 +228,7 @@ describe('publish packages', () => {
         if (dir.includes('cli')) throw new Error('auth failed')
       },
     })
-    await expect(publish({ cwd: tmp, git, npm })).rejects.toThrow(
-      'publish failed for @test/cli',
-    )
+    await expect(publish({ cwd: tmp, git, npm })).rejects.toThrow('publish failed for @test/cli')
   })
 
   test('skips already-published packages and continues', async () => {
@@ -268,9 +266,7 @@ describe('publish packages', () => {
         if (dir.includes('core')) throw new Error('npm ERR! 401 Unauthorized')
       },
     })
-    await expect(publish({ cwd: tmp, git, npm })).rejects.toThrow(
-      'publish failed for @test/core',
-    )
+    await expect(publish({ cwd: tmp, git, npm })).rejects.toThrow('publish failed for @test/core')
   })
 
   test('skips packages with private: true in proman.yaml only', async () => {
