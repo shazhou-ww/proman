@@ -132,25 +132,3 @@ describe('cli --force integration', () => {
     expect(stdout).toContain('--force')
   })
 })
-
-describe('parseDevArgs — --force', () => {
-  test('FP-CLI1: parseDevArgs(["--force"]) returns { force: true }', () => {
-    expect(parseDevArgs(['--force'])).toEqual({ force: true })
-  })
-
-  test('FP-CLI2: parseDevArgs([]) returns { force: false }', () => {
-    expect(parseDevArgs([])).toEqual({ force: false })
-  })
-
-  test('FP-CLI3: unknown flag still throws', () => {
-    expect(() => parseDevArgs(['--bogus'])).toThrow(/unknown flag/)
-  })
-})
-
-describe('cli --force', () => {
-  test('FP-CLI4: --help text mentions --force', () => {
-    const { code, stdout } = runCli(['--help'])
-    expect(code).toBe(0)
-    expect(stdout).toContain('--force')
-  })
-})

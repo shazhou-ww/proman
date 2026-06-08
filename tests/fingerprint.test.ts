@@ -1,12 +1,14 @@
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import {
   computeBuildFingerprints,
   computeRootFingerprint,
+  fingerprintPath,
   hashFiles,
   readFingerprint,
+  sanitizePkgName,
   writeFingerprint,
 } from '../src/utils/fingerprint.ts'
 
@@ -55,7 +57,22 @@ describe('hashFiles', () => {
     expect(hash1).toBe(hash2)
   })
 
-  test('F4: ignores non-matching files', () => {
+  test('F4: content-based, not mtime-based — touch without change keeps same hash', () => {
+    mkdirSync(join(tmpDir, 'src'), { recursive: true })
+    writeFileSync(join(tmpDir, 'src', 'a.ts'), 'export const x = 1')
+
+    const hash1 = hashFiles(tmpDir, ['**/*.ts'])
+
+    // Touch the file (update mtime but not content)
+    const future = new Date(Date.now() + 60000)
+    utimesSync(join(tmpDir, 'src', 'a.ts'), future, future)
+
+    const hash2 = hashFiles(tmpDir, ['**/*.ts'])
+
+    expect(hash1).toBe(hash2)
+  })
+
+  test('F5: ignores non-matching files', () => {
     mkdirSync(join(tmpDir, 'src'), { recursive: true })
     writeFileSync(join(tmpDir, 'src', 'a.ts'), 'export const x = 1')
     writeFileSync(join(tmpDir, 'readme.md'), '# README')
@@ -71,21 +88,40 @@ describe('hashFiles', () => {
 })
 
 describe('readFingerprint / writeFingerprint', () => {
-  test('F5: readFingerprint returns null when file missing', () => {
+  test('F6: readFingerprint returns null when file missing', () => {
     expect(readFingerprint(join(tmpDir, 'nonexistent', 'fp'))).toBeNull()
   })
 
-  test('F6: round-trip — write then read returns same value', () => {
+  test('F7: round-trip — write then read returns same value', () => {
     const fpPath = join(tmpDir, 'test.fingerprint')
     writeFingerprint(fpPath, 'abc123')
     expect(readFingerprint(fpPath)).toBe('abc123')
   })
 
-  test('F7: writeFingerprint creates parent directories', () => {
+  test('F8: writeFingerprint creates parent directories', () => {
     const fpPath = join(tmpDir, 'deep', 'nested', 'dir', 'fp')
     writeFingerprint(fpPath, 'hash')
     expect(existsSync(fpPath)).toBe(true)
     expect(readFingerprint(fpPath)).toBe('hash')
+  })
+})
+
+describe('sanitizePkgName / fingerprintPath', () => {
+  test('F-san1: sanitizePkgName converts @scope/name → @scope-name', () => {
+    expect(sanitizePkgName('@ocas/core')).toBe('@ocas-core')
+    expect(sanitizePkgName('@test/cli')).toBe('@test-cli')
+  })
+
+  test('F-san2: fingerprintPath round-trip for scoped package names', () => {
+    const fpPath = fingerprintPath(tmpDir, 'build', '@ocas/core')
+    writeFingerprint(fpPath, 'x')
+    expect(readFingerprint(fpPath)).toBe('x')
+    expect(fpPath).toContain('@ocas-core.fingerprint')
+  })
+
+  test('F-san3: fingerprintPath with no pkgName uses root.fingerprint', () => {
+    const fpPath = fingerprintPath(tmpDir, 'test')
+    expect(fpPath).toContain('root.fingerprint')
   })
 })
 
@@ -127,7 +163,7 @@ describe('computeBuildFingerprints', () => {
     writeFileSync(join(root, 'packages/cli/tsconfig.json'), '{}')
   }
 
-  test('F8: returns per-package fingerprints', () => {
+  test('F9: returns per-package fingerprints', () => {
     writeMonorepo(tmpDir)
     const packages = [
       { name: '@test/core', path: 'packages/core', type: 'lib' as const },
@@ -143,7 +179,7 @@ describe('computeBuildFingerprints', () => {
     expect(fps.get('@test/cli')).toBeTruthy()
   })
 
-  test('F9: dependency propagation — changing leaf invalidates dependents', () => {
+  test('F10: dependency propagation — changing leaf invalidates dependents', () => {
     writeMonorepo(tmpDir)
     const packages = [
       { name: '@test/core', path: 'packages/core', type: 'lib' as const },
@@ -166,7 +202,7 @@ describe('computeBuildFingerprints', () => {
     expect(before.get('@test/cli')).not.toBe(after.get('@test/cli'))
   })
 
-  test('F10: changing leaf does NOT invalidate unrelated packages', () => {
+  test('F11: changing leaf does NOT invalidate unrelated packages', () => {
     writeMonorepo(tmpDir)
 
     // Add an unrelated package (util, no deps)
@@ -200,7 +236,7 @@ describe('computeBuildFingerprints', () => {
 })
 
 describe('computeRootFingerprint', () => {
-  test('F11: test fingerprint includes src and tests', () => {
+  test('F12: test fingerprint includes src and tests', () => {
     mkdirSync(join(tmpDir, 'src'), { recursive: true })
     mkdirSync(join(tmpDir, 'tests'), { recursive: true })
     writeFileSync(join(tmpDir, 'src/a.ts'), 'export const x = 1')
@@ -216,7 +252,7 @@ describe('computeRootFingerprint', () => {
     expect(hash1).not.toBe(hash2)
   })
 
-  test('F12: check fingerprint includes biome.json', () => {
+  test('F13: check fingerprint includes biome.json', () => {
     mkdirSync(join(tmpDir, 'src'), { recursive: true })
     writeFileSync(join(tmpDir, 'src/a.ts'), 'export const x = 1')
     writeFileSync(join(tmpDir, 'package.json'), '{}')

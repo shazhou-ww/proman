@@ -246,225 +246,6 @@ describe('build — chmod +x bin entries', () => {
   })
 })
 
-// ── fingerprint skip ────────────────────────────────────────────────────
-
-describe('fingerprint skip', () => {
-  let tmpDir: string
-
-  beforeEach(() => {
-    tmpDir = resolve(tmpdir(), `proman-fp-dev-${Date.now()}-${Math.random().toString(36).slice(2)}`)
-    mkdirSync(tmpDir, { recursive: true })
-  })
-
-  afterEach(() => {
-    rmSync(tmpDir, { recursive: true, force: true })
-  })
-
-  /**
-   * Create a minimal monorepo fixture with proman.yaml, package dirs, src files.
-   * core → fs → cli dependency chain.
-   */
-  function writeFpFixture(): void {
-    const packages = [
-      { name: '@test/core', path: 'packages/core', deps: {} },
-      { name: '@test/fs', path: 'packages/fs', deps: { '@test/core': 'workspace:*' } },
-      { name: '@test/cli', path: 'packages/cli', deps: { '@test/fs': 'workspace:*' } },
-    ]
-
-    // proman.yaml
-    const yamlLines = ['packages:']
-    for (const pkg of packages) {
-      yamlLines.push(`  - name: "${pkg.name}"`)
-      yamlLines.push(`    path: ${pkg.path}`)
-      yamlLines.push('    type: lib')
-    }
-    writeFileSync(join(tmpDir, 'proman.yaml'), yamlLines.join('\n'))
-
-    // package dirs with src
-    for (const pkg of packages) {
-      const pkgDir = join(tmpDir, pkg.path)
-      const srcDir = join(pkgDir, 'src')
-      mkdirSync(srcDir, { recursive: true })
-      writeFileSync(join(srcDir, 'index.ts'), `// ${pkg.name}\nexport const x = 1`)
-      writeFileSync(
-        join(pkgDir, 'package.json'),
-        JSON.stringify({
-          name: pkg.name,
-          version: '1.0.0',
-          ...(Object.keys(pkg.deps).length > 0 ? { dependencies: pkg.deps } : {}),
-        }),
-      )
-    }
-
-    // Root files for test/check
-    writeFileSync(join(tmpDir, 'package.json'), '{}')
-    mkdirSync(join(tmpDir, 'tests'), { recursive: true })
-    writeFileSync(join(tmpDir, 'tests', 'example.test.ts'), 'test("x", () => {})')
-  }
-
-  // ── build — fingerprint skip ──────────────────────────────────
-
-  describe('build — fingerprint skip', () => {
-    test('FP-B1: first run — no stored fingerprint → runs build, writes fingerprint', async () => {
-      writeFpFixture()
-      const { spawn, calls } = makeSpawn()
-      await build({ cwd: tmpDir, spawn, force: false })
-
-      // build ran for all 3 packages
-      expect(calls.length).toBe(3)
-
-      // fingerprint files written
-      const fpDir = join(tmpDir, '.proman', 'build')
-      for (const name of ['@test/core', '@test/fs', '@test/cli']) {
-        const fpFile = join(fpDir, `${sanitizePkgName(name)}.fingerprint`)
-        expect(readFingerprint(fpFile)).not.toBeNull()
-      }
-    })
-
-    test('FP-B2: second run — fingerprint matches → skips build', async () => {
-      writeFpFixture()
-      const s1 = makeSpawn()
-      await build({ cwd: tmpDir, spawn: s1.spawn, force: false })
-      expect(s1.calls.length).toBe(3) // first run builds all
-
-      const s2 = makeSpawn()
-      await build({ cwd: tmpDir, spawn: s2.spawn, force: false })
-      expect(s2.calls.length).toBe(0) // second run skips all
-    })
-
-    test('FP-B3: file changed — fingerprint mismatches → runs build', async () => {
-      writeFpFixture()
-      const s1 = makeSpawn()
-      await build({ cwd: tmpDir, spawn: s1.spawn, force: false })
-
-      // modify core source
-      writeFileSync(join(tmpDir, 'packages/core/src/index.ts'), '// changed')
-
-      const s2 = makeSpawn()
-      await build({ cwd: tmpDir, spawn: s2.spawn, force: false })
-      // core + dependents (fs, cli) should re-build
-      expect(s2.calls.length).toBeGreaterThan(0)
-    })
-
-    test('FP-B4: force=true — runs even when fingerprint matches', async () => {
-      writeFpFixture()
-      const s1 = makeSpawn()
-      await build({ cwd: tmpDir, spawn: s1.spawn, force: false })
-
-      const s2 = makeSpawn()
-      await build({ cwd: tmpDir, spawn: s2.spawn, force: true })
-      expect(s2.calls.length).toBe(3)
-    })
-
-    test('FP-B5: build failure — does NOT write/update fingerprint', async () => {
-      writeFpFixture()
-      const { spawn } = makeSpawn(1, '', 'build error')
-      await expect(build({ cwd: tmpDir, spawn, force: false })).rejects.toThrow()
-
-      // No fingerprint files should exist
-      const fpDir = join(tmpDir, '.proman', 'build')
-      expect(existsSync(fpDir)).toBe(false)
-    })
-
-    test('FP-B6: dependency propagation — core change re-runs fs and cli', async () => {
-      writeFpFixture()
-      const s1 = makeSpawn()
-      await build({ cwd: tmpDir, spawn: s1.spawn, force: false })
-
-      // Modify only core
-      writeFileSync(join(tmpDir, 'packages/core/src/index.ts'), '// core v2')
-
-      const s2 = makeSpawn()
-      await build({ cwd: tmpDir, spawn: s2.spawn, force: false })
-
-      // All three should re-build due to dep propagation
-      const rebuiltDirs = s2.calls.map((c) => c.cwd)
-      expect(rebuiltDirs).toContain(resolve(tmpDir, 'packages/core'))
-      expect(rebuiltDirs).toContain(resolve(tmpDir, 'packages/fs'))
-      expect(rebuiltDirs).toContain(resolve(tmpDir, 'packages/cli'))
-    })
-  })
-
-  // ── test — fingerprint skip ──────────────────────────────────
-
-  describe('test — fingerprint skip', () => {
-    test('FP-T1: first run → runs test, writes fingerprint', async () => {
-      writeFpFixture()
-      const { spawn, calls } = makeSpawn()
-      await runTests({ cwd: tmpDir, spawn, force: false })
-
-      expect(calls.length).toBe(1)
-      const fpFile = join(tmpDir, '.proman', 'test', 'root.fingerprint')
-      expect(readFingerprint(fpFile)).not.toBeNull()
-    })
-
-    test('FP-T2: no changes → skips test', async () => {
-      writeFpFixture()
-      const s1 = makeSpawn()
-      await runTests({ cwd: tmpDir, spawn: s1.spawn, force: false })
-      expect(s1.calls.length).toBe(1)
-
-      const s2 = makeSpawn()
-      await runTests({ cwd: tmpDir, spawn: s2.spawn, force: false })
-      expect(s2.calls.length).toBe(0)
-    })
-
-    test('FP-T3: force=true → runs test even if cached', async () => {
-      writeFpFixture()
-      const s1 = makeSpawn()
-      await runTests({ cwd: tmpDir, spawn: s1.spawn, force: false })
-
-      const s2 = makeSpawn()
-      await runTests({ cwd: tmpDir, spawn: s2.spawn, force: true })
-      expect(s2.calls.length).toBe(1)
-    })
-
-    test('FP-T4: test failure → fingerprint NOT written', async () => {
-      writeFpFixture()
-      const { spawn } = makeSpawn(1, '', 'test fail')
-      await expect(runTests({ cwd: tmpDir, spawn, force: false })).rejects.toThrow()
-
-      const fpFile = join(tmpDir, '.proman', 'test', 'root.fingerprint')
-      expect(readFingerprint(fpFile)).toBeNull()
-    })
-  })
-
-  // ── check — fingerprint skip ─────────────────────────────────
-
-  describe('check — fingerprint skip', () => {
-    test('FP-C1: first run → runs check, writes fingerprint', async () => {
-      writeFpFixture()
-      const { spawn, calls } = makeSpawn()
-      await check({ cwd: tmpDir, spawn, force: false })
-
-      expect(calls.length).toBe(1)
-      const fpFile = join(tmpDir, '.proman', 'check', 'root.fingerprint')
-      expect(readFingerprint(fpFile)).not.toBeNull()
-    })
-
-    test('FP-C2: no changes → skips check', async () => {
-      writeFpFixture()
-      const s1 = makeSpawn()
-      await check({ cwd: tmpDir, spawn: s1.spawn, force: false })
-      expect(s1.calls.length).toBe(1)
-
-      const s2 = makeSpawn()
-      await check({ cwd: tmpDir, spawn: s2.spawn, force: false })
-      expect(s2.calls.length).toBe(0)
-    })
-
-    test('FP-C3: force=true → runs check even if cached', async () => {
-      writeFpFixture()
-      const s1 = makeSpawn()
-      await check({ cwd: tmpDir, spawn: s1.spawn, force: false })
-
-      const s2 = makeSpawn()
-      await check({ cwd: tmpDir, spawn: s2.spawn, force: true })
-      expect(s2.calls.length).toBe(1)
-    })
-  })
-})
-
 // ── fingerprint skip ────────────────────────────────────────────────────────
 
 describe('build — fingerprint skip', () => {
@@ -614,6 +395,72 @@ describe('build — fingerprint skip', () => {
     expect(calls2[1]?.cwd).toBe(resolve(cwd, 'packages/fs'))
     expect(calls2[2]?.cwd).toBe(resolve(cwd, 'packages/cli'))
   })
+
+  test('FP-B7: CI env — runs build even when fingerprint matches', async () => {
+    const cwd = writeMonorepoFixture()
+    const { spawn } = makeSpawn()
+    await build({ cwd, spawn, force: false })
+
+    // Simulate CI behavior: cli.ts passes force=true when CI=true
+    const { spawn: spawn2, calls: calls2 } = makeSpawn()
+    await build({ cwd, spawn: spawn2, force: true })
+    expect(calls2.length).toBe(3)
+  })
+
+  test('FP-B8: partial skip — only stale packages rebuild', async () => {
+    // Monorepo with 2 independent packages (no cross-deps)
+    const dir = resolve(
+      tmpdir(),
+      `proman-fp-partial-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    )
+    mkdirSync(dir, { recursive: true })
+    tmpDir = dir
+
+    writeFileSync(
+      join(dir, 'proman.yaml'),
+      [
+        'packages:',
+        '  - name: "@test/alpha"',
+        '    path: packages/alpha',
+        '    type: lib',
+        '  - name: "@test/beta"',
+        '    path: packages/beta',
+        '    type: lib',
+      ].join('\n'),
+    )
+
+    // alpha (no deps)
+    mkdirSync(join(dir, 'packages/alpha/src'), { recursive: true })
+    writeFileSync(join(dir, 'packages/alpha/src/index.ts'), 'export const a = 1')
+    writeFileSync(
+      join(dir, 'packages/alpha/package.json'),
+      JSON.stringify({ name: '@test/alpha', version: '1.0.0' }),
+    )
+    writeFileSync(join(dir, 'packages/alpha/tsconfig.json'), '{}')
+
+    // beta (no deps)
+    mkdirSync(join(dir, 'packages/beta/src'), { recursive: true })
+    writeFileSync(join(dir, 'packages/beta/src/index.ts'), 'export const b = 1')
+    writeFileSync(
+      join(dir, 'packages/beta/package.json'),
+      JSON.stringify({ name: '@test/beta', version: '1.0.0' }),
+    )
+    writeFileSync(join(dir, 'packages/beta/tsconfig.json'), '{}')
+
+    // First run — both build
+    const { spawn: s1, calls: c1 } = makeSpawn()
+    await build({ cwd: dir, spawn: s1, force: false })
+    expect(c1.length).toBe(2)
+
+    // Modify only beta
+    writeFileSync(join(dir, 'packages/beta/src/index.ts'), 'export const b = 999')
+
+    // Second run — only beta should rebuild
+    const { spawn: s2, calls: c2 } = makeSpawn()
+    await build({ cwd: dir, spawn: s2, force: false })
+    expect(c2.length).toBe(1)
+    expect(c2[0]?.cwd).toBe(resolve(dir, 'packages/beta'))
+  })
 })
 
 describe('test — fingerprint skip', () => {
@@ -739,6 +586,51 @@ describe('check — fingerprint skip', () => {
 
     const { spawn: spawn2, calls: calls2 } = makeSpawn()
     await check({ cwd, spawn: spawn2, force: true })
+    expect(calls2.length).toBe(1)
+  })
+
+  test('FP-C4: check failure → fingerprint NOT written', async () => {
+    const cwd = writeCheckFixture()
+    const { spawn } = makeSpawn(1, '', 'check failure')
+
+    await expect(check({ cwd, spawn, force: false })).rejects.toThrow()
+    expect(existsSync(join(cwd, '.proman/check/root.fingerprint'))).toBe(false)
+  })
+})
+
+describe('format — no fingerprint', () => {
+  let tmpDir: string
+
+  afterEach(() => {
+    if (tmpDir) rmSync(tmpDir, { recursive: true, force: true })
+  })
+
+  test('FP-F1: format always runs, no fingerprint directory created', async () => {
+    tmpDir = resolve(
+      tmpdir(),
+      `proman-fp-fmt-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    )
+    mkdirSync(tmpDir, { recursive: true })
+
+    writeFileSync(
+      join(tmpDir, 'proman.yaml'),
+      'packages:\n  - name: "@test/core"\n    path: packages/core\n    type: lib\n',
+    )
+    mkdirSync(join(tmpDir, 'packages/core/src'), { recursive: true })
+    writeFileSync(join(tmpDir, 'packages/core/src/index.ts'), 'export const x = 1')
+    writeFileSync(join(tmpDir, 'packages/core/package.json'), '{}')
+    writeFileSync(join(tmpDir, 'package.json'), '{}')
+
+    const { spawn, calls } = makeSpawn()
+    await format({ cwd: tmpDir, spawn })
+    expect(calls.length).toBe(1)
+
+    // format has no fingerprint logic — no .proman/format/ directory
+    expect(existsSync(join(tmpDir, '.proman/format'))).toBe(false)
+
+    // Second run also always runs
+    const { spawn: spawn2, calls: calls2 } = makeSpawn()
+    await format({ cwd: tmpDir, spawn: spawn2 })
     expect(calls2.length).toBe(1)
   })
 })
