@@ -467,8 +467,6 @@ describe('fingerprint skip', () => {
 
 // ── fingerprint skip ────────────────────────────────────────────────────────
 
-import { existsSync } from 'node:fs'
-
 describe('build — fingerprint skip', () => {
   let tmpDir: string
 

@@ -46,7 +46,7 @@ export async function build(opts: DevCommandOptions): Promise<void> {
   const toRun: { idx: number; pkgDir: string; fpPath: string; fpValue: string }[] = []
 
   for (let i = 0; i < cfg.packages.length; i++) {
-    const pkg = cfg.packages[i]!
+    const pkg = cfg.packages[i] as (typeof cfg.packages)[number]
     const pkgDir = resolve(cwd, pkg.path)
 
     if (useFingerprint && !force) {
@@ -66,7 +66,7 @@ export async function build(opts: DevCommandOptions): Promise<void> {
 
   // Execute builds
   for (const { idx, pkgDir } of toRun) {
-    const pkg = cfg.packages[idx]!
+    const pkg = cfg.packages[idx] as (typeof cfg.packages)[number]
     // Clean output dir + tsbuildinfo before build to prevent stale artifacts
     const outDir = join(pkgDir, 'dist')
     if (existsSync(outDir)) {
