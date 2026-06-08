@@ -7,7 +7,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { build, check, format, runTests } from '../src/commands/dev.ts'
-import { readFingerprint, sanitizePkgName } from '../src/utils/fingerprint.ts'
+
 import type { SpawnFn } from '../src/utils/npm.ts'
 
 const FIX = (name: string) => resolve(__dirname, 'fixtures', name)
@@ -606,10 +606,7 @@ describe('format — no fingerprint', () => {
   })
 
   test('FP-F1: format always runs, no fingerprint directory created', async () => {
-    tmpDir = resolve(
-      tmpdir(),
-      `proman-fp-fmt-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    )
+    tmpDir = resolve(tmpdir(), `proman-fp-fmt-${Date.now()}-${Math.random().toString(36).slice(2)}`)
     mkdirSync(tmpDir, { recursive: true })
 
     writeFileSync(
