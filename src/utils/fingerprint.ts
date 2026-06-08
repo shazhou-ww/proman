@@ -19,6 +19,7 @@ function collectFiles(baseDir: string, patterns: string[]): string[] {
     }
     for (const name of entries) {
       if (name === 'node_modules' || name === '.git' || name === 'dist') continue
+      if (name === '.proman') continue
       const full = join(dir, name)
       let st: ReturnType<typeof statSync>
       try {
@@ -159,8 +160,8 @@ export function computeBuildFingerprints(
 
 /**
  * Compute a root-level fingerprint for test or check commands.
- * - test: src/** + tests/** + package.json + vitest.config.*
- * - check: src/** + tests/** + biome.json + package.json
+ * - test: all .ts files + package.json (covers src, tests, vitest.config.ts)
+ * - check: all .ts files + package.json + biome.json
  */
 export function computeRootFingerprint(cwd: string, command: 'test' | 'check'): string {
   const patterns: string[] =
@@ -181,6 +182,3 @@ export function fingerprintPath(cwd: string, command: string, pkgName?: string):
   const filename = pkgName ? `${pkgNameToFilename(pkgName)}.fingerprint` : 'root.fingerprint'
   return join(cwd, '.proman', command, filename)
 }
-
-/** Alias for pkgNameToFilename — used by tests and dev.ts */
-export const sanitizePkgName = pkgNameToFilename

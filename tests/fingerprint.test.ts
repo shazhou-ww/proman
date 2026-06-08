@@ -7,8 +7,8 @@ import {
   computeRootFingerprint,
   fingerprintPath,
   hashFiles,
+  pkgNameToFilename,
   readFingerprint,
-  sanitizePkgName,
   writeFingerprint,
 } from '../src/utils/fingerprint.ts'
 
@@ -106,10 +106,10 @@ describe('readFingerprint / writeFingerprint', () => {
   })
 })
 
-describe('sanitizePkgName / fingerprintPath', () => {
-  test('F-san1: sanitizePkgName converts @scope/name → @scope-name', () => {
-    expect(sanitizePkgName('@ocas/core')).toBe('@ocas-core')
-    expect(sanitizePkgName('@test/cli')).toBe('@test-cli')
+describe('pkgNameToFilename / fingerprintPath', () => {
+  test('F-san1: pkgNameToFilename converts @scope/name → @scope-name', () => {
+    expect(pkgNameToFilename('@ocas/core')).toBe('@ocas-core')
+    expect(pkgNameToFilename('@test/cli')).toBe('@test-cli')
   })
 
   test('F-san2: fingerprintPath round-trip for scoped package names', () => {

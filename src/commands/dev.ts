@@ -49,19 +49,18 @@ export async function build(opts: DevCommandOptions): Promise<void> {
     const pkg = cfg.packages[i] as (typeof cfg.packages)[number]
     const pkgDir = resolve(cwd, pkg.path)
 
+    const fpPath = fingerprintPath(cwd, 'build', pkg.name)
+    const fpValue = fingerprints?.get(pkg.name) ?? ''
+
     if (useFingerprint && !force) {
-      const fpPath = fingerprintPath(cwd, 'build', pkg.name)
-      const fpValue = fingerprints?.get(pkg.name) ?? ''
       const stored = readFingerprint(fpPath)
       if (stored === fpValue) {
+        console.log(`⏭ build: ${pkg.name} (unchanged)`)
         continue // skip — fingerprint matches
       }
-      toRun.push({ idx: i, pkgDir, fpPath, fpValue })
-    } else {
-      const fpPath = fingerprintPath(cwd, 'build', pkg.name)
-      const fpValue = fingerprints?.get(pkg.name) ?? ''
-      toRun.push({ idx: i, pkgDir, fpPath, fpValue })
     }
+
+    toRun.push({ idx: i, pkgDir, fpPath, fpValue })
   }
 
   // Execute builds
@@ -133,6 +132,7 @@ export async function runTests(opts: DevCommandOptions): Promise<void> {
     if (!force) {
       const stored = readFingerprint(fpPath)
       if (stored === fpValue) {
+        console.log('⏭ test (unchanged)')
         return // skip
       }
     }
@@ -157,6 +157,7 @@ export async function check(opts: DevCommandOptions): Promise<void> {
     if (!force) {
       const stored = readFingerprint(fpPath)
       if (stored === fpValue) {
+        console.log('⏭ check (unchanged)')
         return // skip
       }
     }

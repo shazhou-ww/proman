@@ -104,6 +104,7 @@ export function parseDevArgs(argv: string[]): { force: boolean } {
 
 async function main(argv: string[]): Promise<void> {
   const cmd = argv[0]
+  const isCI = process.env.CI === 'true' || process.env.CI === '1'
   if (cmd === undefined || cmd === '--help' || cmd === '-h') {
     process.stdout.write(HELP_TEXT)
     return
@@ -127,7 +128,6 @@ async function main(argv: string[]): Promise<void> {
   }
   if (cmd === 'build') {
     const { force } = parseDevArgs(argv.slice(1))
-    const isCI = process.env.CI === 'true' || process.env.CI === '1'
     await build({ cwd: process.cwd(), force: isCI || force })
     return
   }
@@ -138,13 +138,11 @@ async function main(argv: string[]): Promise<void> {
   }
   if (cmd === 'test') {
     const { force } = parseDevArgs(argv.slice(1))
-    const isCI = process.env.CI === 'true' || process.env.CI === '1'
     await runTests({ cwd: process.cwd(), force: isCI || force })
     return
   }
   if (cmd === 'check') {
     const { force } = parseDevArgs(argv.slice(1))
-    const isCI = process.env.CI === 'true' || process.env.CI === '1'
     await check({ cwd: process.cwd(), force: isCI || force })
     return
   }
