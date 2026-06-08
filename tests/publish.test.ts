@@ -349,12 +349,13 @@ describe('publish packages', () => {
 // ── RC version ──
 
 describe('rc versions', () => {
-  test('skips changelog for rc', async () => {
+  test('rc version does not affect changesets (publish never touches them)', async () => {
     await setupFixture(tmp, { version: '0.3.0-rc.1', withChangeset: true })
     const { git } = makeGit()
     const { npm } = makeNpm()
     await publish({ cwd: tmp, git, npm, now: NOW })
 
+    // Changesets untouched by publish regardless of RC
     const csDir = join(tmp, '.changeset')
     const files = await readdir(csDir)
     expect(files).toContain('add-feature.md')
@@ -370,33 +371,29 @@ describe('rc versions', () => {
   })
 })
 
-// ── Changelog ──
+// ── Changelog (moved to bump in issue #74) ──
 
 describe('changelog', () => {
-  test('generates changelog and deletes changesets for stable release', async () => {
+  test('does not generate changelog even with changesets present', async () => {
     await setupFixture(tmp, { version: '0.2.1', withChangeset: true })
     const { git } = makeGit()
     const { npm } = makeNpm()
     await publish({ cwd: tmp, git, npm, now: NOW })
 
-    const changelog = await readFile(join(tmp, 'packages/core/CHANGELOG.md'), 'utf8')
-    expect(changelog).toContain('0.2.1')
-    expect(changelog).toContain('2026-06-02')
-    expect(changelog).toContain('Fix bug Y')
-
-    const csDir = join(tmp, '.changeset')
-    const files = await readdir(csDir)
-    expect(files.filter((f) => f.endsWith('.md') && f !== 'config.md')).toHaveLength(0)
+    // No CHANGELOG.md created — that's bump's job now
+    const exists = await readFile(join(tmp, 'packages/core/CHANGELOG.md'), 'utf8').catch(() => null)
+    expect(exists).toBeNull()
   })
 
-  test('no changelog if no changesets', async () => {
-    await setupFixture(tmp)
+  test('does not delete changeset files', async () => {
+    await setupFixture(tmp, { version: '0.2.1', withChangeset: true })
     const { git } = makeGit()
     const { npm } = makeNpm()
     await publish({ cwd: tmp, git, npm, now: NOW })
 
-    const exists = await readFile(join(tmp, 'packages/core/CHANGELOG.md'), 'utf8').catch(() => null)
-    expect(exists).toBeNull()
+    const csDir = join(tmp, '.changeset')
+    const files = await readdir(csDir)
+    expect(files).toContain('add-feature.md')
   })
 })
 
@@ -426,7 +423,7 @@ describe('git operations', () => {
     expect(calls).toContain('tag @test/core@release-0.2.0')
   })
 
-  test('only tags packages mentioned in changesets', async () => {
+  test('tags all publishable packages (publish does not read changesets)', async () => {
     await setupFixture(tmp, {
       multiPkg: true,
       withChangeset: true,
@@ -437,9 +434,9 @@ describe('git operations', () => {
     await publish({ cwd: tmp, git, npm, now: NOW })
 
     const tags = calls.filter((c) => c.startsWith('tag '))
-    expect(tags).toHaveLength(1)
+    expect(tags).toHaveLength(2)
     expect(tags[0]).toContain('@test/core@v')
-    expect(tags.some((t) => t.includes('@test/cli'))).toBe(false)
+    expect(tags[1]).toContain('@test/cli@v')
   })
 
   test('tags all packages when no changesets (manual bump)', async () => {

@@ -1,12 +1,6 @@
-import { readFile, stat, unlink, writeFile } from 'node:fs/promises'
+import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { loadConfig } from '../config/load-config.ts'
-import {
-  buildChangelogEntry,
-  type Changeset,
-  prependChangelog,
-  readChangesets,
-} from '../utils/changeset.ts'
 import { createGitOps, type GitOps } from '../utils/git.ts'
 import { createNpmRunner, type NpmRunner } from '../utils/npm.ts'
 
@@ -23,25 +17,9 @@ export type PublishOptions = {
 
 const AUTHOR = '小橘 <xiaoju@shazhou.work>'
 
-function formatDate(d: Date): string {
-  const y = d.getUTCFullYear()
-  const m = String(d.getUTCMonth() + 1).padStart(2, '0')
-  const day = String(d.getUTCDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
-}
-
 async function readJson(path: string): Promise<Record<string, unknown>> {
   const text = await readFile(path, 'utf8')
   return JSON.parse(text) as Record<string, unknown>
-}
-
-async function fileExists(path: string): Promise<boolean> {
-  try {
-    await stat(path)
-    return true
-  } catch {
-    return false
-  }
 }
 
 function isRcVersion(version: string): boolean {
@@ -57,13 +35,12 @@ function isAlreadyPublished(message: string): boolean {
 
 /**
  * Publish all packages. Reads each package's version from its own package.json.
- * build → test → check → publish → changelog → commit → tag → push
+ * build → test → check → publish → commit → tag → push
  */
 export async function publish(opts: PublishOptions = {}): Promise<void> {
   const { skipTests = false } = opts
   const cwd = opts.cwd ?? process.cwd()
   const git = opts.git ?? createGitOps(cwd)
-  const now = opts.now ?? (() => new Date())
 
   const cfg = loadConfig(cwd)
   const npm = opts.npm ?? createNpmRunner(cwd)
@@ -134,64 +111,12 @@ export async function publish(opts: PublishOptions = {}): Promise<void> {
     }
   }
 
-  // Determine which packages were bumped (from changesets)
-  const changesets = await readChangesets(cwd)
-  const publishablePkgNames = new Set(publishablePackages.map((p) => p.name))
-  const bumpedPackages = new Set<string>()
-  if (changesets.length > 0) {
-    for (const cs of changesets) {
-      for (const pkg of Object.keys(cs.packages)) {
-        if (publishablePkgNames.has(pkg)) bumpedPackages.add(pkg)
-      }
-    }
-  }
-  // If no changesets (e.g. manual --type bump), treat all publishable packages as bumped
-  if (bumpedPackages.size === 0) {
-    for (const pkg of publishablePackages) bumpedPackages.add(pkg.name)
-  }
-
-  // Changelog (skip for RC versions)
-  const hasRc = Object.values(versions).some(isRcVersion)
-  if (!hasRc && changesets.length > 0) {
-    const date = formatDate(now())
-    const byPackage: Record<string, Changeset[]> = {}
-    for (const cs of changesets) {
-      for (const pkg of Object.keys(cs.packages)) {
-        if (!publishablePkgNames.has(pkg)) continue
-        const arr = byPackage[pkg] ?? []
-        arr.push(cs)
-        byPackage[pkg] = arr
-      }
-    }
-
-    for (const pkg of publishablePackages) {
-      const list = byPackage[pkg.name]
-      if (!list || list.length === 0) continue
-      const version = versions[pkg.name] as string
-      const entry = buildChangelogEntry({
-        version,
-        date,
-        bodies: list.map((c) => c.body),
-      })
-      const path = resolve(cwd, pkg.path, 'CHANGELOG.md')
-      let existing: string | null = null
-      if (await fileExists(path)) {
-        existing = await readFile(path, 'utf8')
-      }
-      await writeFile(path, prependChangelog(existing, entry))
-    }
-
-    // Delete consumed changesets
-    for (const cs of changesets) {
-      await unlink(cs.file)
-    }
-  }
-
-  // Commit + tag + push (only tag bumped publishable packages)
+  // Commit + tag + push all publishable packages
+  // Changelog generation and changeset cleanup are now bump's responsibility (issue #74)
   await git.addAll()
 
   const tagPrefix = cfg.release?.gitTagPrefix ?? 'v'
-  const bumpedVersions = Object.entries(versions).filter(([name]) => bumpedPackages.has(name))
+  const bumpedVersions = Object.entries(versions)
 
   const commitVersion = bumpedVersions[0]?.[1] ?? 'unknown'
   await git.commit(`release: v${commitVersion}`, AUTHOR)
