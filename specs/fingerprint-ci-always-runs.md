@@ -13,3 +13,4 @@ tags: [fingerprint, ci]
 
 ## Then
 - All packages rebuild (CI implies force)
+- Fingerprints are updated after successful build

@@ -6,12 +6,12 @@ tags: [tsc, package-order]
 
 ## Given
 - A monorepo with multiple packages defined in proman.yaml
-- Packages have type: node-runtime, pnpm, or webui
+- Packages have type: lib, cli, webui, or api
 
 ## When
 - `proman build` runs
 
 ## Then
-- Each package builds via `pnpm exec tsc --build` (node-runtime, pnpm) or `pnpm exec vite build` (webui)
+- Each package builds via `pnpm exec tsc --build` (lib, cli) or `pnpm exec vite build` (webui)
 - Build order follows proman.yaml declaration order (assumed topo-sorted)
 - dist/ and tsbuildinfo are cleaned before each package build
