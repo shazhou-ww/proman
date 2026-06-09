@@ -158,8 +158,7 @@ roles:
       PACKAGE_NAME=$(node -e "console.log(require('./package.json').name)")
       NEW_VERSION=$(node -e "console.log(require('./package.json').version)")
 
-      git add package.json pnpm-lock.yaml CHANGELOG.md
-      git diff --cached --name-only .changeset/ | xargs -r git add
+      git add package.json pnpm-lock.yaml CHANGELOG.md .changeset/
       git commit -m "release: v${NEW_VERSION}"
       git tag "v${NEW_VERSION}"
       git push origin main --tags || {
