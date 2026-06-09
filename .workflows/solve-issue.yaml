@@ -20,7 +20,7 @@ roles:
       1. Read the issue and all comments from Gitea using `tea issues <number> -r <owner/repo>`
       2. Look for project conventions files (CLAUDE.md, CONTRIBUTING.md, .cursor/rules/) in the repo
       3. Assess whether the issue has enough information to produce a test spec
-      4. If insufficient info: comment on the issue via `echo "..." | tea comment <number> -r <owner/repo>` (skip if you already commented), then yield by outputting $status=$SUSPEND with a reason describing what's missing. The engine suspends the thread; a human can `uwf thread resume` once the info is provided.
+      4. If insufficient info: comment on the issue via `echo "..." | tea comment <number> -r <owner/repo>` (skip if you already commented), then yield by setting `$status: "$SUSPEND"` in your frontmatter output with a reason describing what's missing. The engine suspends the thread; a human can resume it with `uwf thread resume <id>`.
       5. If sufficient: produce a detailed TDD test spec in markdown covering all scenarios
       6. The test spec is stored in CAS automatically by the uwf pipeline (agents do not need to call `ocas put` directly)
       7. Output **$status=ready** with plan hash and repoPath
@@ -42,7 +42,7 @@ roles:
       3. The test spec is stored in CAS automatically by the uwf pipeline (agents do not need to call `ocas put` directly)
       4. Output **$status=ready** with plan hash and repoPath
 
-    output: "Output a brief summary of the test spec. Set $status to ready (fresh) or continue (existing PR). If the issue lacks enough info to plan, yield with $status=$SUSPEND and a reason."
+    output: "Output a brief summary of the test spec. Set $status to ready (fresh) or continue (existing PR). If the issue lacks enough info to plan, set $status to $SUSPEND with a reason."
     frontmatter:
       oneOf:
         - properties:

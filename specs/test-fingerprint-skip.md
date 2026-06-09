@@ -6,7 +6,7 @@ tags: [fingerprint, skip]
 
 ## Given
 - Tests previously passed
-- No .ts files changed (recursive `**/*.ts` match) and package.json unchanged
+- `**/*.ts` and `package.json` are unchanged since last successful test
 
 ## When
 - `proman test` runs (without `--force`)
