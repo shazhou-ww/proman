@@ -95,11 +95,6 @@ roles:
       { echo -e "${ENTRY}\n"; cat CHANGELOG.md; } > CHANGELOG.md.tmp && mv CHANGELOG.md.tmp CHANGELOG.md
       ```
 
-      Delete consumed changeset files (keep README.md):
-      ```bash
-      find .changeset -name '*.md' ! -name 'README.md' -delete
-      ```
-
       **Step 5 — Build and test:**
       ```bash
       pnpm build || { git checkout -- package.json pnpm-lock.yaml CHANGELOG.md; echo "build failed"; exit 1; }
@@ -117,7 +112,14 @@ roles:
       git checkout -- package.json pnpm-lock.yaml CHANGELOG.md
       ```
 
-      **Step 7 — Commit, tag, and push:**
+      **Step 7 — Clean up changesets and commit:**
+
+      Delete consumed changeset files now that publish succeeded:
+      ```bash
+      find .changeset -name '*.md' ! -name 'README.md' -delete
+      ```
+
+      Commit, tag, and push:
       ```bash
       PACKAGE_NAME=$(node -e "console.log(require('./package.json').name)")
       NEW_VERSION=$(node -e "console.log(require('./package.json').version)")
@@ -127,7 +129,7 @@ roles:
       git tag "v${NEW_VERSION}"
       git push origin main --tags
       ```
-      If push fails, output `$status: failed`.
+      If push fails, output `$status: verify_failed` with reason and `published: "true"` (package is already on npm).
 
       **Step 8 — Verify:**
 
@@ -140,10 +142,9 @@ roles:
       ```bash
       GITEA_TOKEN=$(cfg get GITEA_TOKEN)
       curl -s "https://git.shazhou.work/api/v1/repos/<owner/repo>/tags" \
-        -H "Authorization: token ${GITEA_TOKEN}" | jq -r '.[].name' | head -5
+        -H "Authorization: token ${GITEA_TOKEN}" | jq -r '.[].name' | grep -Fx "v${NEW_VERSION}"
       ```
-
-      If verification fails, output `$status: verify_failed`.
+      If the new tag is not found, output `$status: verify_failed`.
 
       **Step 9 — Sync to GitHub (optional):**
 
@@ -178,6 +179,7 @@ roles:
             $status: { const: "verify_failed" }
             reason: { type: string }
             package: { type: string }
+            published: { type: string }
           required: [$status, reason]
 
 graph:
