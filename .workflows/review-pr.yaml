@@ -231,8 +231,6 @@ roles:
             repo: { type: string }
             prNumber: { type: integer }
           required: [$status, issuesCreated, repo, prNumber]
-            prNumber: { type: integer }
-          required: [$status, issuesCreated, repo, prNumber]
 
   merger:
     description: "Waits for CI, checks mergeability, and merges the PR"
