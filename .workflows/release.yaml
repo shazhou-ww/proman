@@ -1,9 +1,9 @@
 name: "release"
-description: "Release workflow for proman-managed projects. Runs pre-flight checks, bumps versions, publishes to npm, verifies, and syncs to GitHub."
+description: "Release workflow for proman (single-package project). Consumes changesets, bumps version, builds, tests, publishes to npm, tags, and syncs to GitHub."
 roles:
   releaser:
-    description: "Executes the full release pipeline: pre-flight → bump → publish → verify → sync"
-    goal: "You are a release engineer. You execute a safe, verified release of a proman-managed project."
+    description: "Executes the full release pipeline for a single-package project"
+    goal: "You are a release engineer for a single-package TypeScript project. You execute a safe, verified release."
     capabilities:
       - git
       - npm
@@ -33,88 +33,140 @@ roles:
 
       1d. Pending changesets exist:
       ```bash
-      ls .changeset/*.md 2>/dev/null | grep -v README.md | grep -v config.json
+      find .changeset -name '*.md' ! -name 'README.md' -type f
       ```
-      If no `.md` files found (excluding README.md and config.json), output `$status: not_ready` with reason "no pending changesets".
+      If no `.md` files found (excluding README.md), output `$status: not_ready` with reason "no pending changesets".
 
       1e. CI is green on latest commit:
       ```bash
       GITEA_TOKEN=$(cfg get GITEA_TOKEN)
       HEAD_SHA=$(git rev-parse HEAD)
-      curl -s "https://git.shazhou.work/api/v1/repos/<owner/repo>/commits/$HEAD_SHA/status" \
-        -H "Authorization: token $GITEA_TOKEN" | jq '{state: .state}'
+      CI_STATE=$(curl -s "https://git.shazhou.work/api/v1/repos/<owner/repo>/commits/${HEAD_SHA}/status" \
+        -H "Authorization: token ${GITEA_TOKEN}" | jq -r '.state')
       ```
-      If state is not `success`, output `$status: not_ready` with reason.
-      If state is `pending`, wait up to 5 minutes (poll every 30s), then fail if still pending.
+      If state is not `success`, wait up to 5 minutes (poll every 30s). If still not `success`, output `$status: not_ready`.
 
-      **Step 2 — Bump versions:**
+      **Step 2 — Determine version bump:**
+
+      Read the changeset file(s) to determine bump type:
       ```bash
-      npx proman bump
+      find .changeset -name '*.md' ! -name 'README.md' -exec cat {} +
       ```
-      This consumes changesets, bumps package.json versions, generates CHANGELOG entries, and deletes consumed changeset files.
-      If it fails, output `$status: failed` with the error.
+      The YAML frontmatter specifies `"<package>": patch|minor|major`.
+      Take the highest bump level across all changesets.
 
-      Record the bumped versions from the output for later verification.
+      **Step 3 — Bump version:**
 
-      **Step 3 — Publish:**
+      Read current version from package.json:
       ```bash
-      npx proman publish
+      node -e "console.log(require('./package.json').version)"
       ```
-      This runs: install → build → test → check → npm publish → git commit → git tag → push.
-      If it fails, output `$status: failed` with the error and which packages succeeded/failed.
 
-      **Step 4 — Verify:**
+      Calculate new version based on bump type (major.minor.patch).
 
-      4a. Check npm registry for each published package:
+      Update package.json version:
       ```bash
-      npm view <package-name>@<new-version> version
+      npm version "${NEW_VERSION}" --no-git-tag-version
+      if [ $? -ne 0 ]; then
+        echo "npm version failed"
+        # output $status: failed with reason
+        exit 1
+      fi
       ```
-      Each should return the new version string.
 
-      4b. Check git tags exist locally:
+      **Step 4 — Generate CHANGELOG entry:**
+
+      Prepend a new section to CHANGELOG.md with the version number, date, and entries from changeset files grouped by type:
       ```bash
-      git tag -l '<package-name>@v<new-version>'
+      # Initialize CHANGELOG.md if missing
+      [[ ! -f CHANGELOG.md ]] && echo "# Changelog" > CHANGELOG.md
+
+      # Build the new entry
+      ENTRY="## v${NEW_VERSION} ($(date +%Y-%m-%d))\n"
+      for f in $(find .changeset -name '*.md' ! -name 'README.md' -type f); do
+        # Extract body content after the closing --- of YAML frontmatter
+        BODY=$(sed -n '/^---$/,/^---$/d; p' "$f" | sed '/^$/d')
+        if [ -n "${BODY}" ]; then
+          ENTRY="${ENTRY}\n${BODY}"
+        fi
+      done
+
+      # Prepend to CHANGELOG.md
+      { echo -e "${ENTRY}\n"; cat CHANGELOG.md; } > CHANGELOG.md.tmp && mv CHANGELOG.md.tmp CHANGELOG.md
       ```
 
-      4c. Check Gitea has the release commit:
+      **Step 5 — Build and test:**
+      ```bash
+      pnpm build || { git checkout -- package.json pnpm-lock.yaml CHANGELOG.md; echo "build failed"; exit 1; }
+      pnpm test || { git checkout -- package.json pnpm-lock.yaml CHANGELOG.md; echo "test failed"; exit 1; }
+      pnpm lint || { git checkout -- package.json pnpm-lock.yaml CHANGELOG.md; echo "lint failed"; exit 1; }
+      ```
+      If any fails, output `$status: failed` with reason.
+
+      **Step 6 — Publish to npm:**
+      ```bash
+      npm publish --access public
+      ```
+      If publish fails, revert version changes and output `$status: failed`:
+      ```bash
+      git checkout -- package.json pnpm-lock.yaml CHANGELOG.md
+      ```
+
+      **Step 7 — Clean up changesets and commit:**
+
+      Delete consumed changeset files now that publish succeeded:
+      ```bash
+      find .changeset -name '*.md' ! -name 'README.md' -delete
+      ```
+
+      Commit, tag, and push:
+      ```bash
+      PACKAGE_NAME=$(node -e "console.log(require('./package.json').name)")
+      NEW_VERSION=$(node -e "console.log(require('./package.json').version)")
+
+      git add -A
+      git commit -m "release: v${NEW_VERSION}"
+      git tag "v${NEW_VERSION}"
+      git push origin main --tags
+      ```
+      If push fails, output `$status: verify_failed` with reason and `published: "true"` (package is already on npm).
+
+      **Step 8 — Verify:**
+
+      8a. Check npm registry:
+      ```bash
+      npm view ${PACKAGE_NAME}@${NEW_VERSION} version
+      ```
+
+      8b. Check git tag exists on remote:
       ```bash
       GITEA_TOKEN=$(cfg get GITEA_TOKEN)
-      curl -s "https://git.shazhou.work/api/v1/repos/<owner/repo>/branches/main" \
-        -H "Authorization: token $GITEA_TOKEN" | jq -r '.commit.message'
+      curl -s "https://git.shazhou.work/api/v1/repos/<owner/repo>/tags" \
+        -H "Authorization: token ${GITEA_TOKEN}" | jq -r '.[].name' | grep -Fx "v${NEW_VERSION}"
       ```
-      Should start with `release: v`.
+      If the new tag is not found, output `$status: verify_failed`.
 
-      If any verification fails, output `$status: verify_failed` with details.
-
-      **Step 5 — Sync to GitHub:**
+      **Step 9 — Sync to GitHub (optional):**
 
       Check if a GitHub remote exists:
       ```bash
       git remote -v | grep github
       ```
-      The remote might be named `origin` or `github` — use whichever points to github.com.
+      If found, push main + tags to it. If not, skip and note it.
 
-      If a GitHub remote exists:
-      ```bash
-      git push <github-remote> main --tags
-      ```
-      If no GitHub remote, skip this step and note it in the output.
-
-      **Step 6 — Output results:**
-      Output `$status: released` with:
-      - List of published packages and versions
-      - Git tags created
-      - GitHub sync status
+      **Step 10 — Output:**
+      Output `$status: released` with the package name, new version, tags, and GitHub sync status.
 
     output: "Report the release result. Set $status to released, not_ready, failed, or verify_failed."
     frontmatter:
       oneOf:
         - properties:
             $status: { const: "released" }
-            packages: { type: string }
-            tags: { type: string }
+            package: { type: string }
+            version: { type: string }
+            tag: { type: string }
             githubSync: { type: string }
-          required: [$status, packages, tags]
+          required: [$status, package, version, tag]
         - properties:
             $status: { const: "not_ready" }
             reason: { type: string }
@@ -122,12 +174,12 @@ roles:
         - properties:
             $status: { const: "failed" }
             reason: { type: string }
-            partialPublish: { type: string }
           required: [$status, reason]
         - properties:
             $status: { const: "verify_failed" }
             reason: { type: string }
-            packages: { type: string }
+            package: { type: string }
+            published: { type: string }
           required: [$status, reason]
 
 graph:
@@ -135,7 +187,7 @@ graph:
     new: { role: "releaser", prompt: "Release {{{repo}}} from {{{repoPath}}}." }
     resume: { role: "releaser", prompt: "Retry release for {{{repo}}} from {{{repoPath}}}." }
   releaser:
-    released: { role: "$END", prompt: "✅ Release complete. Published: {{{packages}}}. Tags: {{{tags}}}. GitHub: {{{githubSync}}}" }
+    released: { role: "$END", prompt: "✅ Release complete. Package: {{{package}}}@{{{version}}}. Tag: {{{tag}}}. GitHub: {{{githubSync}}}" }
     not_ready: { role: "$END", prompt: "⏸ Release aborted — pre-flight failed: {{{reason}}}" }
     failed: { role: "$END", prompt: "❌ Release failed: {{{reason}}}" }
     verify_failed: { role: "$END", prompt: "⚠️ Release may be partial — verification failed: {{{reason}}}" }
