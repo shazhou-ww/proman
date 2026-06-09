@@ -325,10 +325,10 @@ describe('build — fingerprint skip', () => {
 
     // build ran for all 3 packages
     expect(calls.length).toBe(3)
-    // fingerprint files written
-    expect(existsSync(join(cwd, '.proman/build/@test-core.fingerprint'))).toBe(true)
-    expect(existsSync(join(cwd, '.proman/build/@test-fs.fingerprint'))).toBe(true)
-    expect(existsSync(join(cwd, '.proman/build/@test-cli.fingerprint'))).toBe(true)
+    // fingerprint files written inside each package's dist folder
+    expect(existsSync(join(cwd, 'packages/core/dist/.build-fingerprint'))).toBe(true)
+    expect(existsSync(join(cwd, 'packages/fs/dist/.build-fingerprint'))).toBe(true)
+    expect(existsSync(join(cwd, 'packages/cli/dist/.build-fingerprint'))).toBe(true)
   })
 
   test('FP-B2: second run — fingerprint matches → skips build', async () => {
