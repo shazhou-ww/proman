@@ -104,6 +104,9 @@ function createPromanYaml(targetDir: string, projectName: string): void {
 function createPnpmWorkspace(targetDir: string): void {
   const content = `packages:
   - 'packages/*'
+
+allowBuilds:
+  esbuild: true
 `
   writeFileSync(join(targetDir, 'pnpm-workspace.yaml'), content)
 }
