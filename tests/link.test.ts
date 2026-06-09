@@ -324,3 +324,98 @@ describe('unlink command', () => {
     expect(calls).toHaveLength(0)
   })
 })
+
+describe('readPackageJson validation', () => {
+  let tmpDir: string
+
+  beforeEach(() => {
+    tmpDir = resolve(
+      tmpdir(),
+      `proman-link-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    )
+    mkdirSync(tmpDir, { recursive: true })
+  })
+
+  afterEach(() => {
+    rmSync(tmpDir, { recursive: true, force: true })
+  })
+
+  test('Test 1: throws error for primitive string value', async () => {
+    // Given: package.json with primitive string
+    const pkgDir = tmpDir
+    mkdirSync(join(pkgDir, 'dist'), { recursive: true })
+    writeFileSync(join(pkgDir, 'package.json'), '"just a string"')
+    writeFileSync(join(pkgDir, 'dist/index.js'), '')
+
+    const { spawn } = makeSpawn()
+
+    // When/Then: should throw validation error
+    await expect(link({ cwd: pkgDir, spawn })).rejects.toThrow(
+      `Invalid package.json at ${join(pkgDir, 'package.json')}`,
+    )
+  })
+
+  test('Test 2: throws error for array value', async () => {
+    // Given: package.json with array
+    const pkgDir = tmpDir
+    mkdirSync(join(pkgDir, 'dist'), { recursive: true })
+    writeFileSync(join(pkgDir, 'package.json'), '[1, 2, 3]')
+    writeFileSync(join(pkgDir, 'dist/index.js'), '')
+
+    const { spawn } = makeSpawn()
+
+    // When/Then: should throw validation error
+    await expect(link({ cwd: pkgDir, spawn })).rejects.toThrow(
+      `Invalid package.json at ${join(pkgDir, 'package.json')}`,
+    )
+  })
+
+  test('Test 3: throws error for null value', async () => {
+    // Given: package.json with null
+    const pkgDir = tmpDir
+    mkdirSync(join(pkgDir, 'dist'), { recursive: true })
+    writeFileSync(join(pkgDir, 'package.json'), 'null')
+    writeFileSync(join(pkgDir, 'dist/index.js'), '')
+
+    const { spawn } = makeSpawn()
+
+    // When/Then: should throw validation error
+    await expect(link({ cwd: pkgDir, spawn })).rejects.toThrow(
+      `Invalid package.json at ${join(pkgDir, 'package.json')}`,
+    )
+  })
+
+  test('Test 4: succeeds for valid object with name', async () => {
+    // Given: package.json with valid object
+    const pkgDir = tmpDir
+    writeFileSync(
+      join(pkgDir, 'package.json'),
+      JSON.stringify({ name: 'test-package', version: '1.0.0' }),
+    )
+    mkdirSync(join(pkgDir, 'dist'), { recursive: true })
+    writeFileSync(join(pkgDir, 'dist/index.js'), '')
+
+    const { spawn, calls } = makeSpawn()
+
+    // When: readPackageJson is called via link command
+    await link({ cwd: pkgDir, spawn })
+
+    // Then: should succeed without throwing
+    expect(calls).toHaveLength(1)
+    expect(calls[0]?.argv).toEqual(['pnpm', 'link', '--global'])
+  })
+
+  test('Test 5: succeeds for empty object', async () => {
+    // Given: package.json with empty object
+    const pkgDir = tmpDir
+    writeFileSync(join(pkgDir, 'package.json'), '{}')
+    mkdirSync(join(pkgDir, 'dist'), { recursive: true })
+    writeFileSync(join(pkgDir, 'dist/index.js'), '')
+
+    const { spawn } = makeSpawn()
+
+    // When/Then: readPackageJson succeeds, but link fails due to missing name
+    // This validates that readPackageJson accepts empty objects
+    await expect(link({ cwd: pkgDir, spawn })).rejects.toThrow('Not in a package directory')
+  })
+})

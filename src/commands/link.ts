@@ -26,6 +26,12 @@ function readPackageJson(cwd: string): {
     throw new Error('Not in a package directory')
   }
   const json = JSON.parse(readFileSync(pkgPath, 'utf-8'))
+
+  // Runtime validation: ensure parsed value is an object (not array, primitive, or null)
+  if (typeof json !== 'object' || json === null || Array.isArray(json)) {
+    throw new Error(`Invalid package.json at ${pkgPath}`)
+  }
+
   return json
 }
 
