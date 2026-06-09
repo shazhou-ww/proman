@@ -30,6 +30,8 @@ This scaffolds a ready-to-use monorepo with two example packages (core library +
 | `proman test` | Run tests (vitest) |
 | `proman check` | Lint with biome |
 | `proman format` | Format with biome |
+| `proman link [package]` | Link local package for development (see Link section) |
+| `proman unlink [package]` | Unlink and restore packages from registry |
 | `proman bump` | Bump package versions (from changesets or --type), generate CHANGELOG.md, delete consumed changesets |
 | `proman publish` | Full release pipeline: build → test → check → publish → tag → push |
 | `proman deploy` | Deploy webui/api packages (wrangler) |
@@ -72,6 +74,32 @@ proman build       # build all packages
 proman test        # run tests
 ```
 
+### Link
+
+Link local packages for development testing using `pnpm link` under the hood.
+
+**Provider mode** (in the package to be linked):
+```bash
+cd packages/my-lib
+proman link              # link current package globally (requires built artifacts)
+```
+
+**Consumer mode** (in the project using the package):
+```bash
+proman link @myorg/my-lib   # link package from global registry
+proman link --status         # show currently linked packages
+```
+
+**Unlink**:
+```bash
+proman unlink               # unlink all linked packages and restore from registry
+proman unlink @myorg/my-lib # unlink specific package
+```
+
+**Notes:**
+- Provider mode checks for build artifacts (dist/) before linking
+- Consumer mode validates that the package is in dependencies or devDependencies
+- `--status` shows symlinked packages and their source paths
 ## Configuration
 
 Create `proman.yaml` in your project root:
