@@ -64,7 +64,14 @@ roles:
         | jq '[.[] | {state, body, reviewer: .user.login}]'
       ```
       This returns all previous reviews with their state (APPROVED, REQUEST_CHANGES) and body.
-      Pass this to the reviewer so they know what has already been flagged and don't repeat.
+
+      Also collect PR comments (where authors respond to review feedback):
+      ```bash
+      curl -s "https://git.shazhou.work/api/v1/repos/<owner/repo>/issues/<number>/comments" \
+        -H "Authorization: token $GITEA_TOKEN" \
+        | jq '[.[] | {body, author: .user.login, created: .created_at}]'
+      ```
+      Pass both reviews and comments to the reviewer so they can see author responses to previous findings.
 
       **Self-approval shortcut:** If the existing reviews show that `$CURRENT_USER` has already
       submitted an APPROVED review on this PR, output `$status: already_approved` immediately.

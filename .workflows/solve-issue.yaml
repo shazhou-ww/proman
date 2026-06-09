@@ -20,7 +20,7 @@ roles:
       1. Read the issue and all comments from Gitea using `tea issues <number> -r <owner/repo>`
       2. Look for project conventions files (CLAUDE.md, CONTRIBUTING.md, .cursor/rules/) in the repo
       3. Assess whether the issue has enough information to produce a test spec
-      4. If insufficient info: comment on the issue via `echo "..." | tea comment <number> -r <owner/repo>` (skip if you already commented), then yield by outputting $status=$SUSPEND with a reason describing what's missing. The engine suspends the thread; a human can `uwf thread resume` once the info is provided.
+      4. If insufficient info: comment on the issue via `echo "..." | tea comment <number> -r <owner/repo>` (skip if you already commented), then yield by setting `$status: "$SUSPEND"` in your frontmatter output with a reason describing what's missing. The engine suspends the thread; a human can resume it with `uwf thread resume <id>`.
       5. If sufficient: produce a detailed TDD test spec in markdown covering all scenarios
       6. The test spec is stored in CAS automatically by the uwf pipeline (agents do not need to call `ocas put` directly)
       7. Output **$status=ready** with plan hash and repoPath
@@ -42,12 +42,7 @@ roles:
       3. The test spec is stored in CAS automatically by the uwf pipeline (agents do not need to call `ocas put` directly)
       4. Output **$status=ready** with plan hash and repoPath
 
-      IMPORTANT: Extract the repo remote (owner/repo) from git:
-      ```bash
-      git remote get-url origin | sed 's|.*[:/]\([^/]*/[^.]*\).*|\1|'
-      ```
-      Store the result as repoRemote in your frontmatter output so downstream roles can use it.
-    output: "Output a brief summary of the test spec. Set $status to ready (fresh) or continue (existing PR). If the issue lacks enough info to plan, yield with $status=$SUSPEND and a reason."
+    output: "Output a brief summary of the test spec. Set $status to ready (fresh) or continue (existing PR). If the issue lacks enough info to plan, set $status to $SUSPEND with a reason."
     frontmatter:
       oneOf:
         - properties:
@@ -87,20 +82,20 @@ roles:
       6. ALL subsequent work must happen inside the worktree directory.
 
       Then implement TDD:
-      6. Read the test spec from CAS: `ocas get <plan hash>` (find the hash from the planner's output in your task prompt)
-      7. If bounced back from reviewer or tester: read the previous role's feedback in your task prompt
-      8. Write tests first based on the spec
-      9. Implement the code to make tests pass
-      10. Ensure `pnpm run build` passes with no errors
-      11. Run `pnpm test` to verify all tests pass
+      7. Read the test spec from CAS: `ocas get <plan hash>` (find the hash from the planner's output in your task prompt)
+      8. If bounced back from reviewer or tester: read the previous role's feedback in your task prompt
+      9. Write tests first based on the spec
+      10. Implement the code to make tests pass
+      11. Ensure `pnpm run build` passes with no errors
+      12. Run `pnpm test` to verify all tests pass
 
       After implementation, before reporting done:
-      12. Add a changeset file (`.changeset/<short-slug>.md`) with correct bump type:
+      13. Add a changeset file (`.changeset/<short-slug>.md`) with correct bump type:
           - `patch` for bug fixes, internal refactors, test-only changes
           - `minor` for new features, new CLI commands, new API surfaces
           - `major` for breaking changes
           List every affected package in the changeset frontmatter.
-      13. Update documentation if the change affects user-facing behavior:
+      14. Update documentation if the change affects user-facing behavior:
           - `README.md` — usage examples, feature descriptions
           - `.cards/` — architecture decision records (if applicable)
           - CLI prompt subcommand output (if CLI help text changes)

@@ -65,7 +65,7 @@ roles:
       done
 
       if [ "${CI_STATE}" != "success" ]; then
-        echo "CI not green after about 5 minutes. Final state: ${CI_STATE}"
+        echo "CI not green after ~5 minutes. Final state: ${CI_STATE}"
         # output $status: not_ready with reason "CI timeout — final state: ${CI_STATE}"
       fi
       ```
