@@ -153,4 +153,14 @@ describe('proman init', () => {
     )
     expect(corePackageJson.name).toBe('@hidden-project/core')
   })
+
+  test('strips tilde from directory name', async () => {
+    const projectDir = join(testDir, 'my~project')
+    await init({ targetDir: projectDir })
+
+    const corePackageJson = JSON.parse(
+      readFileSync(join(projectDir, 'packages/core/package.json'), 'utf-8'),
+    )
+    expect(corePackageJson.name).toBe('@my-project/core')
+  })
 })
