@@ -1,201 +1,189 @@
 name: "release"
-description: "Release workflow for proman (single-package project). Consumes changesets, bumps version, builds, tests, publishes to npm, tags, and syncs to GitHub."
+description: "Release proman with $SUSPEND gates for PR review and npm OTP."
 roles:
-  releaser:
-    description: "Executes the full release pipeline for a single-package project"
-    goal: "You are a release engineer for a single-package TypeScript project. You execute a safe, verified release."
+  preflight:
+    description: "Verify repository readiness for release"
+    goal: "Check all pre-flight conditions for releasing proman."
+    capabilities:
+      - git
+    procedure: |
+      cd into the repo path from the task prompt.
+
+      Check ALL conditions — abort on first failure with `$status: not_ready`:
+
+      1. On `main` branch (`git branch --show-current`)
+      2. Clean working tree (`git status --porcelain` is empty)
+      3. Up to date (`git pull --ff-only` succeeds)
+      4. Pending changesets exist:
+         ```bash
+         find .changeset -name '*.md' ! -name 'README.md' -type f
+         ```
+         If none found, not_ready with "no pending changesets".
+      5. CI green on HEAD:
+         ```bash
+         GITEA_TOKEN=$(cfg get GITEA_TOKEN)
+         HEAD_SHA=$(git rev-parse HEAD)
+         ```
+         Poll `GET /api/v1/repos/<owner/repo>/commits/${HEAD_SHA}/status` up to 10× (30s interval).
+         Accept `success`. Fail on `failure`/`error`. Timeout after ~5min if still `pending`.
+
+      If all pass, output `$status: ready` with the changeset filenames listed, and pass through `repo` and `repoPath` from the task prompt.
+    output: "ready with changeset list, or not_ready with reason"
+    frontmatter:
+      oneOf:
+        - properties:
+            $status: { const: "ready" }
+            changesets: { type: string }
+            repo: { type: string }
+            repoPath: { type: string }
+          required: [$status, changesets, repo, repoPath]
+        - properties:
+            $status: { const: "not_ready" }
+            reason: { type: string }
+          required: [$status, reason]
+
+  bumper:
+    description: "Bump version, generate changelog, open PR, and suspend for review"
+    goal: "Create a version bump PR and suspend until it is reviewed and merged."
     capabilities:
       - git
       - npm
     procedure: |
-      You will receive a repo slug (owner/repo) and local repo path in the task prompt.
-      cd into the local repo path for all operations.
+      cd into the repo path.
 
-      **Step 1 — Pre-flight checks (ALL must pass, abort on first failure):**
+      **First run — create the bump PR:**
 
-      1a. On `main` branch:
-      ```bash
-      BRANCH=$(git branch --show-current)
-      ```
-      If not `main`, output `$status: not_ready` with reason.
+      1. Read changeset files to determine bump type (take highest: minor > patch):
+         ```bash
+         find .changeset -name '*.md' ! -name 'README.md' -exec cat {} +
+         ```
 
-      1b. Clean working tree:
-      ```bash
-      git status --porcelain
-      ```
-      If output is non-empty, output `$status: not_ready` with reason.
+      2. Calculate new version from current `package.json`:
+         ```bash
+         CURRENT=$(node -e "console.log(require('./package.json').version)")
+         ```
+         Split MAJOR.MINOR.PATCH, apply bump type.
 
-      1c. Pull latest and check for divergence:
-      ```bash
-      git pull --ff-only
-      ```
-      If this fails (diverged), output `$status: not_ready` with reason.
+      3. Create release branch and apply changes:
+         ```bash
+         git checkout -b release/v${NEW_VERSION}
+         npm version ${NEW_VERSION} --no-git-tag-version
+         ```
 
-      1d. Pending changesets exist:
-      ```bash
-      find .changeset -name '*.md' ! -name 'README.md' -type f
-      ```
-      If no `.md` files found (excluding README.md), output `$status: not_ready` with reason "no pending changesets".
+      4. Generate CHANGELOG entry — prepend `## v${NEW_VERSION} (YYYY-MM-DD)` with changeset bodies.
+         Initialize CHANGELOG.md if missing.
 
-      1e. CI is green on latest commit:
-      ```bash
-      GITEA_TOKEN=$(cfg get GITEA_TOKEN)
-      HEAD_SHA=$(git rev-parse HEAD)
-      OWNER_REPO="<owner/repo>"  # substitute from task prompt
+      5. Delete consumed changeset files:
+         ```bash
+         find .changeset -name '*.md' ! -name 'README.md' -delete
+         ```
 
-      for i in $(seq 1 10); do
-        CI_STATE=$(curl -s "https://git.shazhou.work/api/v1/repos/${OWNER_REPO}/commits/${HEAD_SHA}/status" \
-          -H "Authorization: token ${GITEA_TOKEN}" | jq -r '.state')
+      6. Build and test to verify the bump is clean:
+         ```bash
+         pnpm build && pnpm test
+         ```
+         If either fails, abort: `git checkout main`, output `$status: failed`.
 
-        if [ "${CI_STATE}" = "success" ]; then
-          break
-        elif [ "${CI_STATE}" = "null" ] || [ "${CI_STATE}" = "" ]; then
-          echo "No CI status found for commit ${HEAD_SHA} — no CI configured or commit too new"
-          # output $status: not_ready with reason "no CI status for commit"
-          break
-        elif [ "${CI_STATE}" = "failure" ] || [ "${CI_STATE}" = "error" ]; then
-          echo "CI failed with state: ${CI_STATE}"
-          # output $status: not_ready with reason "CI ${CI_STATE}"
-          break
-        fi
+      7. Commit and push:
+         ```bash
+         git add -A
+         git commit -m "release: v${NEW_VERSION}"
+         git push -u origin release/v${NEW_VERSION}
+         ```
 
-        # CI is pending — wait and retry
-        echo "CI pending (attempt ${i}/10), waiting 30s..."
-        sleep 30
-      done
+      8. Open PR via Gitea API:
+         ```bash
+         GITEA_TOKEN=$(cfg get GITEA_TOKEN)
+         curl -s -X POST \
+           -H "Authorization: token ${GITEA_TOKEN}" \
+           -H "Content-Type: application/json" \
+           "https://git.shazhou.work/api/v1/repos/${OWNER_REPO}/pulls" \
+           -d '{"title":"release: v'"${NEW_VERSION}"'","head":"release/v'"${NEW_VERSION}"'","base":"main","body":"..."}'
+         ```
 
-      if [ "${CI_STATE}" != "success" ]; then
-        echo "CI not green after ~5 minutes. Final state: ${CI_STATE}"
-        # output $status: not_ready with reason "CI timeout — final state: ${CI_STATE}"
-      fi
-      ```
+      9. Emit `$SUSPEND` with reason including the PR number and URL.
 
-      **Step 2 — Determine version bump:**
+      **On resume — verify PR is merged:**
 
-      Read the changeset file(s) to determine bump type:
-      ```bash
-      find .changeset -name '*.md' ! -name 'README.md' -exec cat {} +
-      ```
-      The YAML frontmatter specifies `"<package>": patch|minor|major`.
-      Take the highest bump level: major > minor > patch.
-      If multiple changesets exist, the highest bump wins.
-      Example: one changeset says `patch`, another says `minor` → result is `minor`.
+      1. Find the release PR: look for open or merged PRs with head branch `release/v*` via Gitea API.
+      2. If PR is not merged, emit `$SUSPEND` again with "PR still open — waiting for merge".
+      3. If merged:
+         ```bash
+         git checkout main && git pull --ff-only
+         ```
+      4. Read the version from package.json to confirm.
+      5. Output `$status: merged` with version, PR number, and pass through `repo` and `repoPath`.
 
-      **Step 3 — Bump version:**
+    output: "merged after PR is reviewed, or $SUSPEND while waiting"
+    frontmatter:
+      oneOf:
+        - properties:
+            $status: { const: "merged" }
+            version: { type: string }
+            prNumber: { type: string }
+            repo: { type: string }
+            repoPath: { type: string }
+          required: [$status, version, repo, repoPath]
+        - properties:
+            $status: { const: "failed" }
+            reason: { type: string }
+          required: [$status, reason]
 
-      Read current version from package.json:
-      ```bash
-      CURRENT_VERSION=$(node -e "console.log(require('./package.json').version)")
-      ```
+  publisher:
+    description: "Build, test, publish to npm with OTP, tag, verify, sync"
+    goal: "Publish the bumped version to npm and finalize the release."
+    capabilities:
+      - git
+      - npm
+    procedure: |
+      cd into the repo path. Should be on main with the bumped version already merged.
 
-      Calculate new version based on bump type:
-      ```bash
-      IFS='.' read -r MAJOR MINOR PATCH <<< "${CURRENT_VERSION}"
-      case "${BUMP_TYPE}" in
-        major) NEW_VERSION="$((MAJOR + 1)).0.0" ;;
-        minor) NEW_VERSION="${MAJOR}.$((MINOR + 1)).0" ;;
-        patch) NEW_VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))" ;;
-      esac
-      ```
+      **First run — build, test, and request OTP:**
 
-      Update package.json version:
-      ```bash
-      npm version "${NEW_VERSION}" --no-git-tag-version
-      if [ $? -ne 0 ]; then
-        echo "npm version failed"
-        # output $status: failed with reason
-        exit 1
-      fi
-      ```
+      1. Verify on main, clean tree, correct version in package.json.
+      2. Build and test:
+         ```bash
+         pnpm build && pnpm test
+         ```
+         If either fails, output `$status: failed`.
+      3. Emit `$SUSPEND` with reason:
+         "Ready to publish @shazhou/proman@{version}. Please resume with the npm OTP code:
+          uwf thread resume <thread-id> -p 'OTP: <6-digit-code>'"
 
-      **Step 4 — Generate CHANGELOG entry:**
+      **On resume — publish with OTP:**
 
-      Prepend a new section to CHANGELOG.md with the version number, date, and entries from changeset files grouped by type:
-      ```bash
-      # Initialize CHANGELOG.md if missing
-      [[ ! -f CHANGELOG.md ]] && echo "# Changelog" > CHANGELOG.md
+      1. Extract the 6-digit OTP code from the supplementary prompt text.
+         If no valid OTP found, emit `$SUSPEND` again asking for OTP.
 
-      # Build the new entry
-      ENTRY="## v${NEW_VERSION} ($(date +%Y-%m-%d))\n"
-      for f in $(find .changeset -name '*.md' ! -name 'README.md' -type f); do
-        # Extract body content after the closing --- of YAML frontmatter
-        BODY=$(sed -n '/^---$/,/^---$/d; p' "$f" | sed '/^$/d')
-        if [ -n "${BODY}" ]; then
-          ENTRY="${ENTRY}\n${BODY}"
-        fi
-      done
+      2. Publish to npm:
+         ```bash
+         npm publish --access public --otp ${OTP}
+         ```
+         If publish fails with OTP/auth error, emit `$SUSPEND` with "OTP invalid or expired, please provide a new one".
+         If publish fails with other error, output `$status: failed`.
 
-      # Prepend to CHANGELOG.md
-      { echo -e "${ENTRY}\n"; cat CHANGELOG.md; } > CHANGELOG.md.tmp && mv CHANGELOG.md.tmp CHANGELOG.md
-      ```
+      3. Tag and push:
+         ```bash
+         git tag "v${VERSION}"
+         git push origin --tags
+         ```
 
-      **Step 5 — Build and test:**
-      ```bash
-      pnpm build || { git checkout -- package.json pnpm-lock.yaml CHANGELOG.md; echo "build failed"; exit 1; }
-      pnpm test || { git checkout -- package.json pnpm-lock.yaml CHANGELOG.md; echo "test failed"; exit 1; }
-      pnpm lint || { git checkout -- package.json pnpm-lock.yaml CHANGELOG.md; echo "lint failed"; exit 1; }
-      ```
-      If any fails, output `$status: failed` with reason.
+      4. Verify:
+         ```bash
+         npm view @shazhou/proman@${VERSION} version
+         ```
+         Check tag on Gitea via API. If verification fails, output `$status: verify_failed`.
 
-      **Step 6 — Publish to npm:**
-      ```bash
-      npm publish --access public
-      ```
-      If publish fails, revert version changes and output `$status: failed`:
-      ```bash
-      git checkout -- package.json pnpm-lock.yaml CHANGELOG.md
-      ```
+      5. Sync to GitHub (if remote exists):
+         ```bash
+         git remote -v | grep github
+         git push github main --tags
+         ```
+         Note result but do NOT fail the release if GitHub sync fails.
 
-      **Step 7 — Clean up changesets and commit:**
+      6. Output `$status: released` with package, version, tag, githubSync.
 
-      Delete consumed changeset files now that publish succeeded:
-      ```bash
-      find .changeset -name '*.md' ! -name 'README.md' -delete
-      ```
-
-      Commit, tag, and push:
-      ```bash
-      PACKAGE_NAME=$(node -e "console.log(require('./package.json').name)")
-      NEW_VERSION=$(node -e "console.log(require('./package.json').version)")
-
-      git add package.json pnpm-lock.yaml CHANGELOG.md .changeset/
-      git commit -m "release: v${NEW_VERSION}"
-      git tag "v${NEW_VERSION}"
-      git push origin main --tags || {
-        echo "Push failed. Package already published to npm as ${PACKAGE_NAME}@${NEW_VERSION}."
-        echo "Manual recovery needed: push main + tag, or revert npm publish."
-        # output $status: verify_failed with published: "true"
-      }
-      ```
-      If push fails, output `$status: verify_failed` with reason and `published: "true"` (package is already on npm).
-
-      **Step 8 — Verify:**
-
-      8a. Check npm registry:
-      ```bash
-      npm view ${PACKAGE_NAME}@${NEW_VERSION} version
-      ```
-
-      8b. Check git tag exists on remote:
-      ```bash
-      GITEA_TOKEN=$(cfg get GITEA_TOKEN)
-      curl -s "https://git.shazhou.work/api/v1/repos/${OWNER_REPO}/tags" \
-        -H "Authorization: token ${GITEA_TOKEN}" | jq -r '.[].name' | grep -Fx "v${NEW_VERSION}"
-      ```
-      If the new tag is not found, output `$status: verify_failed`.
-
-      **Step 9 — Sync to GitHub (optional):**
-
-      Check if a GitHub remote exists:
-      ```bash
-      git remote -v | grep github
-      ```
-      If found, push main + tags to it. If push to GitHub fails, note the failure but do NOT mark the release as failed — the npm publish and Gitea push already succeeded.
-
-      **Step 10 — Output:**
-      Output `$status: released` with the package name, new version, tags, and GitHub sync status.
-
-    output: "Report the release result. Set $status to released, not_ready, failed, or verify_failed."
+    output: "released, failed, or verify_failed"
     frontmatter:
       oneOf:
         - properties:
@@ -206,26 +194,25 @@ roles:
             githubSync: { type: string }
           required: [$status, package, version, tag]
         - properties:
-            $status: { const: "not_ready" }
-            reason: { type: string }
-          required: [$status, reason]
-        - properties:
             $status: { const: "failed" }
             reason: { type: string }
           required: [$status, reason]
         - properties:
             $status: { const: "verify_failed" }
             reason: { type: string }
-            package: { type: string }
-            published: { type: string }
           required: [$status, reason]
 
 graph:
   $START:
-    new: { role: "releaser", prompt: "Release {{{repo}}} from {{{repoPath}}}." }
-    resume: { role: "releaser", prompt: "Retry release for {{{repo}}} from {{{repoPath}}}." }
-  releaser:
-    released: { role: "$END", prompt: "✅ Release complete. Package: {{{package}}}@{{{version}}}. Tag: {{{tag}}}. GitHub: {{{githubSync}}}" }
-    not_ready: { role: "$END", prompt: "⏸ Release aborted — pre-flight failed: {{{reason}}}" }
+    new: { role: "preflight", prompt: "Pre-flight check for releasing {{{repo}}} from {{{repoPath}}}." }
+    resume: { role: "preflight", prompt: "Re-check release readiness for {{{repo}}} at {{{repoPath}}}." }
+  preflight:
+    ready: { role: "bumper", prompt: "Bump version for {{{repo}}} at {{{repoPath}}}. Pending changesets:\n{{{changesets}}}" }
+    not_ready: { role: "$END", prompt: "⏸ Release aborted: {{{reason}}}" }
+  bumper:
+    merged: { role: "publisher", prompt: "Publish {{{repo}}} v{{{version}}} from {{{repoPath}}}. Release PR #{{{prNumber}}} merged." }
+    failed: { role: "$END", prompt: "❌ Bump failed: {{{reason}}}" }
+  publisher:
+    released: { role: "$END", prompt: "✅ Released {{{package}}}@{{{version}}}. Tag: {{{tag}}}. GitHub: {{{githubSync}}}" }
     failed: { role: "$END", prompt: "❌ Release failed: {{{reason}}}" }
-    verify_failed: { role: "$END", prompt: "⚠️ Release may be partial — verification failed: {{{reason}}}" }
+    verify_failed: { role: "$END", prompt: "⚠️ Verification failed: {{{reason}}}" }
