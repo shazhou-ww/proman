@@ -12,13 +12,15 @@ function jsonStringify(obj: unknown): string {
 
 /** Sanitize directory name into a valid npm package name segment */
 function toPackageName(dirName: string): string {
-  return dirName
-    .toLowerCase()
-    .replace(/[^a-z0-9._-]/g, '-') // replace invalid chars
-    .replace(/^[._-]+/, '')          // strip leading dots/hyphens/underscores
-    .replace(/-+/g, '-')             // collapse consecutive hyphens
-    .slice(0, 214)                   // npm name length limit
-    || 'my-project'                  // fallback if everything was stripped
+  return (
+    dirName
+      .toLowerCase()
+      .replace(/[^a-z0-9._-]/g, '-') // replace invalid chars
+      .replace(/^[._-]+/, '') // strip leading dots/hyphens/underscores
+      .replace(/-+/g, '-') // collapse consecutive hyphens
+      .slice(0, 214) || // npm name length limit
+    'my-project'
+  ) // fallback if everything was stripped
 }
 
 export async function init(opts: InitOptions): Promise<void> {
