@@ -6,7 +6,7 @@ tags: [fingerprint, skip]
 
 ## Given
 - Check previously passed
-- No .ts files changed (recursive `**/*.ts` match), package.json, or biome.json unchanged
+- No .ts files changed (recursive `**/*.ts` match) and package.json or biome.json unchanged
 
 ## When
 - `proman check` runs (without `--force`)

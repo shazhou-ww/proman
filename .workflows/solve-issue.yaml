@@ -1,0 +1,236 @@
+name: "solve-issue"
+description: "Issue resolution workflow for proman. Plans, implements, and tests fixes using TDD."
+roles:
+  planner:
+    description: "Analyzes issue and produces test specification"
+    goal: "You are a test specification writer. You analyze GitHub/Gitea issues and produce comprehensive test specifications following TDD principles."
+    capabilities:
+      - git
+    procedure: |
+      You will receive an issue number and repo slug (owner/repo) in the task prompt.
+
+      **Step 1 — Fetch issue details:**
+      Use the Gitea API to get the issue:
+      ```bash
+      GITEA_TOKEN=$(cfg get GITEA_TOKEN)
+      curl -s "https://git.shazhou.work/api/v1/repos/<owner/repo>/issues/<number>" \
+        -H "Authorization: token $GITEA_TOKEN" | jq '{title, body, labels: [.labels[].name]}'
+      ```
+
+      **Step 2 — Understand context:**
+      1. Read the issue description carefully
+      2. Identify the problem or feature request
+      3. Check if there are related issues or PRs mentioned
+      4. Look at relevant code files if needed (use Read tool)
+
+      **Step 3 — Write test specification:**
+      Create a comprehensive test spec that includes:
+      - Overview of the issue
+      - Test scenarios covering the expected behavior
+      - Acceptance criteria for each scenario
+      - Files that need to be modified
+      - Test strategy (unit tests, integration tests, etc.)
+
+      Format the spec as markdown with clear sections:
+      - ## Overview
+      - ## Test Scenarios (with Given/When/Then for each)
+      - ## Implementation Notes
+      - ## Validation
+
+      **Step 4 — Output:**
+      Store the test spec and output the CAS hash for downstream roles.
+
+    output: "Output the test specification CAS hash and $status: ready"
+    frontmatter:
+      properties:
+        plan: { type: string }
+        $status: { const: "ready" }
+        repoPath: { type: string }
+        repoRemote: { type: string }
+      required: [plan, $status, repoPath]
+
+  developer:
+    description: "Implements code changes following TDD"
+    goal: "You are a developer agent. You implement code changes following TDD — write tests first, then implementation."
+    capabilities:
+      - coding
+    procedure: |
+      IMPORTANT: Always work in a git worktree, NEVER modify the main working directory directly.
+      The repo path and other details are provided in your task prompt.
+
+      Before starting any work, set up an isolated worktree:
+      1. cd into the repo path provided in your task prompt
+      2. `git fetch origin` to get latest refs
+      3. First time (no existing branch):
+         - `git worktree add .worktrees/fix/<issue-number>-<short-slug> -b fix/<issue-number>-<short-slug> origin/main`
+         - `cd .worktrees/fix/<issue-number>-<short-slug> && pnpm install`
+      4. If continuing on existing branch (prompt says "Continue work on existing branch" or provides a worktree path):
+         - cd directly into the worktree path provided in the prompt
+         - `git fetch origin && git rebase origin/main`
+         - Do NOT create a new branch or worktree
+      5. If bounced back from reviewer or tester (branch already exists but no explicit worktree path):
+         - cd into the existing worktree under `.worktrees/fix/<issue-number>-<short-slug>`
+         - `git fetch origin && git rebase origin/main`
+      6. ALL subsequent work must happen inside the worktree directory.
+
+      Then implement TDD:
+      6. Read the test spec from CAS: `ocas get <plan hash>` (find the hash from the planner's output in your task prompt)
+      7. If bounced back from reviewer or tester: read the previous role's feedback in your task prompt
+      8. Write tests first based on the spec
+      9. Implement the code to make tests pass
+      10. Ensure `pnpm run build` passes with no errors
+      11. Run `pnpm test` to verify all tests pass
+
+      After implementation, before reporting done:
+      12. Add a changeset file (`.changeset/<short-slug>.md`) with correct bump type:
+          - `patch` for bug fixes, internal refactors, test-only changes
+          - `minor` for new features, new CLI commands, new API surfaces
+          - `major` for breaking changes
+          List every affected package in the changeset frontmatter.
+      13. Update documentation if the change affects user-facing behavior:
+          - `README.md` — usage examples, feature descriptions
+          - `.cards/` — architecture decision records (if applicable)
+          - CLI prompt subcommand output (if CLI help text changes)
+          - CLI `--help` text (if flags/commands are added or changed)
+
+      If you cannot complete the implementation (e.g. the issue is too complex, blocked by external factors,
+      or repeated attempts fail), set $status=failed with a reason.
+
+    output: "List all files changed and provide a summary. Set $status to done (with branch/worktree), or failed (with reason)."
+    frontmatter:
+      oneOf:
+        - properties:
+            branch: { type: string }
+            $status: { const: "done" }
+            worktree: { type: string }
+          required: [branch, $status, worktree]
+        - properties:
+            reason: { type: string }
+            $status: { const: "failed" }
+          required: [reason, $status]
+
+  tester:
+    description: "Validates implementation against test spec"
+    goal: "You are a test engineer. You verify that the implementation matches the test specification and all tests pass."
+    capabilities:
+      - coding
+    procedure: |
+      You will receive a worktree path and test spec CAS hash in the task prompt.
+
+      **Step 1 — Navigate to worktree:**
+      ```bash
+      cd <worktree-path>
+      ```
+
+      **Step 2 — Read test spec:**
+      ```bash
+      ocas get <plan-hash>
+      ```
+
+      **Step 3 — Verify tests exist:**
+      Check that tests were written for all scenarios in the spec.
+      - Look for new test files or modified test files
+      - Ensure test coverage matches the spec
+
+      **Step 4 — Run tests:**
+      ```bash
+      pnpm test
+      ```
+      All tests must pass. If any fail, output $status: tests_failed with details.
+
+      **Step 5 — Run build:**
+      ```bash
+      pnpm run build
+      ```
+      Build must succeed with no errors.
+
+      **Step 6 — Verify changeset:**
+      Check that a changeset file exists in `.changeset/` with appropriate bump type.
+
+      **Step 7 — Output:**
+      If all checks pass, output $status: verified.
+      If tests fail or build fails, output $status: tests_failed or $status: build_failed with details.
+
+    output: "Report verification results. Set $status to verified, tests_failed, or build_failed."
+    frontmatter:
+      oneOf:
+        - properties:
+            $status: { const: "verified" }
+            testsRun: { type: integer }
+            testsPassed: { type: integer }
+          required: [$status, testsRun, testsPassed]
+        - properties:
+            $status: { enum: ["tests_failed", "build_failed"] }
+            reason: { type: string }
+          required: [$status, reason]
+
+conditions:
+  is_ready:
+    description: "Planner finished writing test spec"
+    expr: "$prev.role == 'planner' && $prev.output.$status == 'ready'"
+
+  is_done:
+    description: "Developer finished implementation"
+    expr: "$prev.role == 'developer' && $prev.output.$status == 'done'"
+
+  is_verified:
+    description: "Tester verified the implementation"
+    expr: "$prev.role == 'tester' && $prev.output.$status == 'verified'"
+
+  needs_fixes:
+    description: "Tests or build failed"
+    expr: "$prev.role == 'tester' && ($prev.output.$status == 'tests_failed' || $prev.output.$status == 'build_failed')"
+
+routes:
+  - from: $start
+    when: $start
+    to: planner
+    moderator: |
+      ## Moderator Instruction
+
+      Analyze issue #{{issueNumber}} in repo {{repo}} and produce a comprehensive test specification.
+
+      Repository path: {{repoPath}}
+
+  - from: planner
+    when: is_ready
+    to: developer
+    moderator: |
+      ## Moderator Instruction
+
+      Implement the TDD test spec (CAS hash: {{$prev.output.plan}}) in repo {{repoPath}}.
+
+  - from: developer
+    when: is_done
+    to: tester
+    moderator: |
+      ## Moderator Instruction
+
+      Verify the implementation in worktree {{$prev.output.worktree}}.
+      Test spec CAS hash: {{$planner.output.plan}}
+
+  - from: tester
+    when: is_verified
+    to: $end
+    moderator: |
+      ## Workflow Complete
+
+      Issue #{{issueNumber}} has been successfully implemented and verified.
+      Branch: {{$developer.output.branch}}
+      Worktree: {{$developer.output.worktree}}
+
+      Next steps: Create a PR for review.
+
+  - from: tester
+    when: needs_fixes
+    to: developer
+    moderator: |
+      ## Moderator Instruction
+
+      Continue work on existing branch {{$developer.output.branch}}.
+      Worktree: {{$developer.output.worktree}}
+
+      Tester feedback:
+      {{$prev.output.reason}}
+
+      Fix the issues and ensure all tests pass.
