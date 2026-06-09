@@ -8,10 +8,24 @@ Project manager CLI for TypeScript monorepos — build, test, lint, format, publ
 pnpm add -D @shazhou/proman
 ```
 
+## Quick Start
+
+Create a new monorepo:
+
+```bash
+pnpm dlx @shazhou/proman init my-project
+cd my-project
+pnpm install
+pnpm run build
+```
+
+This scaffolds a ready-to-use monorepo with two example packages (core library + CLI).
+
 ## Commands
 
 | Command | Description |
 |---------|-------------|
+| `proman init [dir]` | Scaffold a new monorepo (default: current directory) |
 | `proman build` | Build each package by type (tsc/vite). Cleans dist + tsbuildinfo before build. |
 | `proman test` | Run tests (vitest) |
 | `proman check` | Lint with biome |
@@ -34,6 +48,29 @@ proman deploy --env staging      # deploy to a specific wrangler environment
 |------|-------------|
 | `--package <name>` | Deploy only the named package (must be type webui or api) |
 | `--env <env>` | Wrangler environment to deploy to (e.g. staging, production) |
+
+### Init
+
+Scaffold a new monorepo with a working example structure:
+
+```bash
+proman init my-project    # creates my-project/ with full monorepo structure
+proman init               # scaffolds in current directory
+```
+
+The generated monorepo includes:
+- **packages/core** — Example library package with TypeScript + vitest
+- **packages/cli** — Example CLI package that depends on core
+- **Root config** — proman.yaml, pnpm-workspace.yaml, biome.json, tsconfig.json
+- **Ready to run** — All build/test/check/format scripts work out of the box
+
+After init:
+```bash
+cd my-project      # if you used a directory argument
+pnpm install       # install dependencies
+proman build       # build all packages
+proman test        # run tests
+```
 
 ## Configuration
 
