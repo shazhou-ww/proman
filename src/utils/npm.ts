@@ -79,7 +79,7 @@ export const defaultSpawn: SpawnFn = async (argv, cwd) => {
   }
 }
 
-async function runOrThrow(spawn: SpawnFn, argv: string[], cwd: string): Promise<void> {
+export async function runOrThrow(spawn: SpawnFn, argv: string[], cwd: string): Promise<void> {
   const { code, stdout, stderr } = await spawn(argv, cwd)
   if (code !== 0) {
     const detail = stderr.trim() || stdout.trim()

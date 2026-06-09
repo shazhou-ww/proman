@@ -5,6 +5,7 @@ import {
   formatRcVersion,
   nextRcNumber,
   parseReleaseBranch,
+  runOrThrow,
   type SpawnFn,
 } from '../src/utils/npm.ts'
 
@@ -78,6 +79,33 @@ describe('formatRcVersion', () => {
   })
   test('higher number', () => {
     expect(formatRcVersion('1.0.0', 7)).toBe('1.0.0-rc.7')
+  })
+})
+
+describe('runOrThrow', () => {
+  test('should export runOrThrow from npm utils', () => {
+    expect(runOrThrow).toBeDefined()
+    expect(typeof runOrThrow).toBe('function')
+  })
+
+  test('should succeed when spawn returns code 0', async () => {
+    const spawn: SpawnFn = async () => ({ code: 0, stdout: '', stderr: '' })
+    await expect(runOrThrow(spawn, ['echo', 'hello'], '/tmp')).resolves.toBeUndefined()
+  })
+
+  test('should throw when spawn returns non-zero', async () => {
+    const spawn: SpawnFn = async () => ({ code: 1, stdout: '', stderr: 'error' })
+    await expect(runOrThrow(spawn, ['fail'], '/tmp')).rejects.toThrow(/fail failed: error/)
+  })
+
+  test('should include stdout in error when stderr is empty', async () => {
+    const spawn: SpawnFn = async () => ({ code: 1, stdout: 'stdout detail', stderr: '' })
+    await expect(runOrThrow(spawn, ['fail'], '/tmp')).rejects.toThrow(/fail failed: stdout detail/)
+  })
+
+  test('should format error message with command name', async () => {
+    const spawn: SpawnFn = async () => ({ code: 1, stdout: '', stderr: '' })
+    await expect(runOrThrow(spawn, ['pnpm', 'build'], '/tmp')).rejects.toThrow(/pnpm build failed/)
   })
 })
 

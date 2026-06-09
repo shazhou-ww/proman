@@ -1,19 +1,11 @@
 import { existsSync, lstatSync, readdirSync, readFileSync, readlinkSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { defaultSpawn, type SpawnFn } from '../utils/npm.ts'
+import { defaultSpawn, runOrThrow, type SpawnFn } from '../utils/npm.ts'
 
 export type LinkCommandOptions = {
   cwd: string
   packageName?: string
   spawn?: SpawnFn
-}
-
-async function runOrThrow(spawn: SpawnFn, argv: string[], cwd: string): Promise<void> {
-  const { code, stdout, stderr } = await spawn(argv, cwd)
-  if (code !== 0) {
-    const detail = stderr.trim() || stdout.trim()
-    throw new Error(detail ? `${argv.join(' ')} failed: ${detail}` : `${argv.join(' ')} failed`)
-  }
 }
 
 function readPackageJson(cwd: string): {
