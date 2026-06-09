@@ -19,6 +19,6 @@
     }
   },
   "files": {
-    "includes": ["**", "!**/dist", "!**/node_modules", "!**/tests/fixtures"]
+    "includes": ["**", "!**/dist", "!**/node_modules", "!**/tests/fixtures", "!.worktrees"]
   }
 }
