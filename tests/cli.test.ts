@@ -5,7 +5,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 
 import { spawnSync } from 'node:child_process'
 import { describe, expect, test } from 'vitest'
-import { parseDeployArgs, parseDevArgs } from '../src/cli.ts'
+import { parseDeployArgs, parseDevArgs, parseLinkArgs } from '../src/cli.ts'
 
 const CLI = resolve(__dirname, '..', 'dist', 'cli.js')
 
@@ -30,6 +30,8 @@ describe('cli help', () => {
     expect(stdout).toContain('test')
     expect(stdout).toContain('check')
     expect(stdout).toContain('format')
+    expect(stdout).toContain('link')
+    expect(stdout).toContain('unlink')
   })
 
   test('D6: no args prints help', () => {
@@ -130,5 +132,23 @@ describe('cli --force integration', () => {
     const { code, stdout } = runCli(['--help'])
     expect(code).toBe(0)
     expect(stdout).toContain('--force')
+  })
+})
+
+describe('parseLinkArgs', () => {
+  test('L-parse-1: empty args', () => {
+    expect(parseLinkArgs([])).toEqual({ packageName: undefined, status: false })
+  })
+  test('L-parse-2: --status', () => {
+    expect(parseLinkArgs(['--status'])).toEqual({ packageName: undefined, status: true })
+  })
+  test('L-parse-3: package name', () => {
+    expect(parseLinkArgs(['@scope/package'])).toEqual({
+      packageName: '@scope/package',
+      status: false,
+    })
+  })
+  test('L-parse-4: unknown flag', () => {
+    expect(() => parseLinkArgs(['--bad'])).toThrow(/unknown flag/)
   })
 })

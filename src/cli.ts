@@ -6,6 +6,7 @@ import { bump } from './commands/bump.ts'
 import { deploy } from './commands/deploy.ts'
 import { build, check, format, runTests } from './commands/dev.ts'
 import { init } from './commands/init.ts'
+import { link, linkStatus, unlink } from './commands/link.ts'
 import { publish } from './commands/publish.ts'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -27,6 +28,13 @@ Commands:
   test                  Run tests
   check                 Lint with biome
   format                Format with biome
+  link [package]        Link local package for development
+                          (no args)         Link current package globally
+                          <package>         Link package from global registry
+                          --status          Show linked packages
+  unlink [package]      Unlink and restore packages from registry
+                          (no args)         Unlink all linked packages
+                          <package>         Unlink specific package
   prompt setup          Show skill installation instructions (for agents)
   prompt usage          Show full CLI usage as markdown (for agents)
 
@@ -104,6 +112,24 @@ export function parseDevArgs(argv: string[]): { force: boolean } {
   return { force }
 }
 
+export function parseLinkArgs(argv: string[]): {
+  packageName?: string
+  status: boolean
+} {
+  let packageName: string | undefined
+  let status = false
+  for (const a of argv) {
+    if (a === '--status') {
+      status = true
+    } else if (!a.startsWith('-')) {
+      packageName = a
+    } else {
+      throw new Error(`unknown flag: ${a}`)
+    }
+  }
+  return { packageName, status }
+}
+
 async function main(argv: string[]): Promise<void> {
   const cmd = argv[0]
   const isCI = process.env.CI === 'true' || process.env.CI === '1'
@@ -156,6 +182,21 @@ async function main(argv: string[]): Promise<void> {
   if (cmd === 'format') {
     parseDevArgs(argv.slice(1))
     await format({ cwd: process.cwd() })
+    return
+  }
+  if (cmd === 'link') {
+    const { packageName, status } = parseLinkArgs(argv.slice(1))
+    if (status) {
+      const result = await linkStatus({ cwd: process.cwd() })
+      console.log(result)
+    } else {
+      await link({ cwd: process.cwd(), packageName })
+    }
+    return
+  }
+  if (cmd === 'unlink') {
+    const { packageName } = parseLinkArgs(argv.slice(1))
+    await unlink({ cwd: process.cwd(), packageName })
     return
   }
   if (cmd === 'prompt') {
