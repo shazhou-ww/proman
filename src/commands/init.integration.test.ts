@@ -17,13 +17,13 @@ describe('proman init integration', () => {
     mkdirSync(testDir, { recursive: true })
     projectDir = join(testDir, 'test-project')
 
-    // Get the path to the proman CLI
+    // Get the path to the proman CLI (used only for init — the generated project uses its own)
     const promanBin = join(process.cwd(), 'dist', 'cli.js')
 
     // Run proman init
     execSync(`node ${promanBin} init test-project`, { cwd: testDir })
 
-    // Install dependencies
+    // Install dependencies — this installs @shazhou/proman as a devDep inside the generated project
     execSync('pnpm install', { cwd: projectDir, stdio: 'inherit' })
   }, 60000)
 
@@ -35,23 +35,21 @@ describe('proman init integration', () => {
   })
 
   test('proman build succeeds', () => {
-    const promanBin = join(process.cwd(), 'dist', 'cli.js')
+    // Use the generated project's own proman (installed as devDep), not the parent's
     expect(() => {
-      execSync(`node ${promanBin} build`, { cwd: projectDir, stdio: 'inherit' })
+      execSync('pnpm exec proman build', { cwd: projectDir, stdio: 'inherit' })
     }).not.toThrow()
   })
 
   test('proman test succeeds', () => {
-    const promanBin = join(process.cwd(), 'dist', 'cli.js')
     expect(() => {
-      execSync(`node ${promanBin} test`, { cwd: projectDir, stdio: 'inherit' })
+      execSync('pnpm exec proman test', { cwd: projectDir, stdio: 'inherit' })
     }).not.toThrow()
   })
 
   test('proman check succeeds', () => {
-    const promanBin = join(process.cwd(), 'dist', 'cli.js')
     expect(() => {
-      execSync(`node ${promanBin} check`, { cwd: projectDir, stdio: 'inherit' })
+      execSync('pnpm exec proman check', { cwd: projectDir, stdio: 'inherit' })
     }).not.toThrow()
   })
 })

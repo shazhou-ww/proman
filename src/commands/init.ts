@@ -6,14 +6,24 @@ export type InitOptions = {
   targetDir: string
 }
 
-// Helper to serialize JSON with single-line arrays (matching biome format)
 function jsonStringify(obj: unknown): string {
   return JSON.stringify(obj, null, 2)
 }
 
+/** Sanitize directory name into a valid npm package name segment */
+function toPackageName(dirName: string): string {
+  return dirName
+    .toLowerCase()
+    .replace(/[^a-z0-9._~-]/g, '-') // replace invalid chars
+    .replace(/^[._-]+/, '')          // strip leading dots/hyphens/underscores
+    .replace(/-+/g, '-')             // collapse consecutive hyphens
+    .slice(0, 214)                   // npm name length limit
+    || 'my-project'                  // fallback if everything was stripped
+}
+
 export async function init(opts: InitOptions): Promise<void> {
   const targetDir = resolve(opts.targetDir)
-  const projectName = basename(targetDir)
+  const projectName = toPackageName(basename(targetDir))
 
   // Check if directory is empty
   if (existsSync(targetDir)) {
@@ -68,6 +78,7 @@ function createRootPackageJson(targetDir: string, projectName: string): void {
     },
     devDependencies: {
       '@biomejs/biome': '^2.4.16',
+      '@shazhou/proman': '^0.7.0',
       '@types/node': '^22.0.0',
       typescript: '^5.9.3',
       vitest: '^4.1.8',

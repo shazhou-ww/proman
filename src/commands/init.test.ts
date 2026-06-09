@@ -39,6 +39,7 @@ describe('proman init', () => {
     expect(rootPackageJson.scripts.test).toBe('proman test')
     expect(rootPackageJson.scripts.check).toBe('proman check')
     expect(rootPackageJson.scripts.format).toBe('proman format')
+    expect(rootPackageJson.devDependencies['@shazhou/proman']).toBeDefined()
 
     expect(existsSync(join(projectDir, 'proman.yaml'))).toBe(true)
     expect(existsSync(join(projectDir, 'pnpm-workspace.yaml'))).toBe(true)
@@ -131,5 +132,25 @@ describe('proman init', () => {
     writeFileSync(join(projectDir, 'package.json'), '{}')
 
     await expect(init({ targetDir: projectDir })).rejects.toThrow(/not empty/)
+  })
+
+  test('sanitizes directory name with uppercase and special chars', async () => {
+    const projectDir = join(testDir, 'My-Project_v2!')
+    await init({ targetDir: projectDir })
+
+    const corePackageJson = JSON.parse(
+      readFileSync(join(projectDir, 'packages/core/package.json'), 'utf-8'),
+    )
+    expect(corePackageJson.name).toBe('@my-project_v2-/core')
+  })
+
+  test('sanitizes directory name starting with dot', async () => {
+    const projectDir = join(testDir, '.hidden-project')
+    await init({ targetDir: projectDir })
+
+    const corePackageJson = JSON.parse(
+      readFileSync(join(projectDir, 'packages/core/package.json'), 'utf-8'),
+    )
+    expect(corePackageJson.name).toBe('@hidden-project/core')
   })
 })
