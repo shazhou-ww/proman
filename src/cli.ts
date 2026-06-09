@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { bump } from './commands/bump.ts'
 import { deploy } from './commands/deploy.ts'
 import { build, check, format, runTests } from './commands/dev.ts'
+import { init } from './commands/init.ts'
 import { publish } from './commands/publish.ts'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -16,6 +17,7 @@ const VERSION = pkg.version
 const HELP_TEXT = `Usage: proman <command> [options]
 
 Commands:
+  init [dir]            Scaffold a new monorepo (default: current directory)
   bump                  Bump package versions (from changesets or --type)
   publish               Build, test, publish, changelog, tag, push [--skip-tests]
   build                 Build each package by type (tsc/vite)
@@ -111,6 +113,11 @@ async function main(argv: string[]): Promise<void> {
   }
   if (cmd === '--version' || cmd === '-v') {
     console.log(VERSION)
+    return
+  }
+  if (cmd === 'init') {
+    const targetDir = argv[1] ?? process.cwd()
+    await init({ targetDir })
     return
   }
   if (cmd === 'bump') {
