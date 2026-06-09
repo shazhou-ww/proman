@@ -49,7 +49,7 @@ export async function build(opts: DevCommandOptions): Promise<void> {
     const pkg = cfg.packages[i] as (typeof cfg.packages)[number]
     const pkgDir = resolve(cwd, pkg.path)
 
-    const fpPath = fingerprintPath(cwd, 'build', pkg.name)
+    const fpPath = fingerprintPath(pkgDir, 'build', pkg.name)
     const fpValue = fingerprints?.get(pkg.name) ?? ''
 
     if (useFingerprint && !force) {

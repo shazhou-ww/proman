@@ -177,8 +177,17 @@ export function pkgNameToFilename(name: string): string {
 
 /**
  * Get the fingerprint file path for a command and optional package name.
+ *
+ * For build command: stores fingerprint inside package's dist folder.
+ * For other commands (test, check): stores in .proman directory.
  */
 export function fingerprintPath(cwd: string, command: string, pkgName?: string): string {
+  if (command === 'build' && pkgName) {
+    // For build command, store fingerprint inside package's dist folder
+    return join(cwd, 'dist/.build-fingerprint')
+  }
+
+  // For test/check commands or when no package name, use .proman directory
   const filename = pkgName ? `${pkgNameToFilename(pkgName)}.fingerprint` : 'root.fingerprint'
   return join(cwd, '.proman', command, filename)
 }

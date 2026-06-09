@@ -112,8 +112,9 @@ describe('pkgNameToFilename / fingerprintPath', () => {
     expect(pkgNameToFilename('@test/cli')).toBe('@test-cli')
   })
 
-  test('F-san2: fingerprintPath round-trip for scoped package names', () => {
-    const fpPath = fingerprintPath(tmpDir, 'build', '@ocas/core')
+  test('F-san2: fingerprintPath round-trip for scoped package names (non-build commands)', () => {
+    // Test with deploy command (non-build command should still use old .proman path)
+    const fpPath = fingerprintPath(tmpDir, 'deploy', '@ocas/core')
     writeFingerprint(fpPath, 'x')
     expect(readFingerprint(fpPath)).toBe('x')
     expect(fpPath).toContain('@ocas-core.fingerprint')
@@ -122,6 +123,20 @@ describe('pkgNameToFilename / fingerprintPath', () => {
   test('F-san3: fingerprintPath with no pkgName uses root.fingerprint', () => {
     const fpPath = fingerprintPath(tmpDir, 'test')
     expect(fpPath).toContain('root.fingerprint')
+  })
+
+  test('F-san4: fingerprintPath for build command returns path inside package dist folder', () => {
+    const pkgDir = join(tmpDir, 'packages/pkg')
+    const fpPath = fingerprintPath(pkgDir, 'build', '@test/pkg')
+    expect(fpPath).toBe(join(pkgDir, 'dist/.build-fingerprint'))
+  })
+
+  test('F-san5: fingerprintPath for test/check commands returns path in .proman', () => {
+    const testFpPath = fingerprintPath(tmpDir, 'test')
+    expect(testFpPath).toBe(join(tmpDir, '.proman/test/root.fingerprint'))
+
+    const checkFpPath = fingerprintPath(tmpDir, 'check')
+    expect(checkFpPath).toBe(join(tmpDir, '.proman/check/root.fingerprint'))
   })
 })
 
@@ -265,5 +280,37 @@ describe('computeRootFingerprint', () => {
     const hash2 = computeRootFingerprint(tmpDir, 'check')
 
     expect(hash1).not.toBe(hash2)
+  })
+})
+
+describe('Fingerprint storage inside build output (Issue #135)', () => {
+  test('T1: Fingerprint stored inside dist folder', () => {
+    const pkgDir = join(tmpDir, 'packages/pkg')
+    mkdirSync(join(pkgDir, 'src'), { recursive: true })
+    mkdirSync(join(pkgDir, 'dist'), { recursive: true })
+    writeFileSync(join(pkgDir, 'src/index.ts'), 'export const x = 1')
+    writeFileSync(join(pkgDir, 'package.json'), JSON.stringify({ name: '@test/pkg' }))
+
+    // Write fingerprint using new location
+    const fpPath = fingerprintPath(pkgDir, 'build', '@test/pkg')
+    writeFingerprint(fpPath, 'abc123')
+
+    // Verify it's inside dist folder
+    expect(fpPath).toBe(join(pkgDir, 'dist/.build-fingerprint'))
+    expect(existsSync(fpPath)).toBe(true)
+
+    // Verify old location is NOT used
+    const oldPath = join(tmpDir, '.proman/build/@test-pkg.fingerprint')
+    expect(existsSync(oldPath)).toBe(false)
+  })
+
+  test('T2: Test and check fingerprints still use .proman directory', () => {
+    // Test command fingerprint
+    const testFpPath = fingerprintPath(tmpDir, 'test')
+    expect(testFpPath).toBe(join(tmpDir, '.proman/test/root.fingerprint'))
+
+    // Check command fingerprint
+    const checkFpPath = fingerprintPath(tmpDir, 'check')
+    expect(checkFpPath).toBe(join(tmpDir, '.proman/check/root.fingerprint'))
   })
 })
