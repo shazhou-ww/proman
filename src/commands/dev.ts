@@ -8,7 +8,7 @@ import {
   readFingerprint,
   writeFingerprint,
 } from '../utils/fingerprint.ts'
-import { defaultSpawn, type SpawnFn } from '../utils/npm.ts'
+import { defaultSpawn, runOrThrow, type SpawnFn } from '../utils/npm.ts'
 
 export type DevCommandOptions = {
   cwd: string
@@ -18,14 +18,6 @@ export type DevCommandOptions = {
    *  - true: always run (--force / CI)
    *  - undefined: legacy behavior — always run, no fingerprint logic */
   force?: boolean
-}
-
-async function runOrThrow(spawn: SpawnFn, argv: string[], cwd: string): Promise<void> {
-  const { code, stdout, stderr } = await spawn(argv, cwd)
-  if (code !== 0) {
-    const detail = stderr.trim() || stdout.trim()
-    throw new Error(detail ? `${argv.join(' ')} failed: ${detail}` : `${argv.join(' ')} failed`)
-  }
 }
 
 function pnpmExec(bin: string, ...args: string[]): string[] {

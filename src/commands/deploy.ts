@@ -1,20 +1,12 @@
 import { resolve } from 'node:path'
 import { loadConfig } from '../config/index.ts'
-import { defaultSpawn, type SpawnFn } from '../utils/npm.ts'
+import { defaultSpawn, runOrThrow, type SpawnFn } from '../utils/npm.ts'
 
 export type DeployCommandOptions = {
   cwd: string
   pkg?: string
   env?: string
   spawn?: SpawnFn
-}
-
-async function runOrThrow(spawn: SpawnFn, argv: string[], cwd: string): Promise<void> {
-  const { code, stdout, stderr } = await spawn(argv, cwd)
-  if (code !== 0) {
-    const detail = stderr.trim() || stdout.trim()
-    throw new Error(detail ? `${argv.join(' ')} failed: ${detail}` : `${argv.join(' ')} failed`)
-  }
 }
 
 function pnpmExec(bin: string, ...args: string[]): string[] {
