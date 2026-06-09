@@ -150,7 +150,7 @@ roles:
           required: [$status, reason]
 
   publisher:
-    description: "Build, test, publish to npm with OTP, tag, verify, sync"
+    description: "Build, test, publish to npm, tag, verify, sync"
     goal: "Publish the bumped version to npm and finalize the release."
     capabilities:
       - git
@@ -158,50 +158,40 @@ roles:
     procedure: |
       cd into the repo path. Should be on main with the bumped version already merged.
 
-      **First run — build, test, and request OTP:**
-
       1. Verify on main, clean tree, correct version in package.json.
+
       2. Build and test:
          ```bash
          pnpm build && pnpm test
          ```
          If either fails, output `$status: failed`.
-      3. Emit `$SUSPEND` with reason:
-         "Ready to publish @shazhou/proman@{version}. Please resume with the npm OTP code:
-          uwf thread resume <thread-id> -p 'OTP: <6-digit-code>'"
 
-      **On resume — publish with OTP:**
-
-      1. Extract the 6-digit OTP code from the supplementary prompt text.
-         If no valid OTP found, emit `$SUSPEND` again asking for OTP.
-
-      2. Publish to npm:
+      3. Publish to npm (automation token, no OTP needed):
          ```bash
-         npm publish --access public --otp ${OTP}
+         pnpm publish --no-git-checks
          ```
-         If publish fails with OTP/auth error, emit `$SUSPEND` with "OTP invalid or expired, please provide a new one".
-         If publish fails with other error, output `$status: failed`.
+         If publish fails, output `$status: failed`.
 
-      3. Tag and push:
+      4. Tag and push:
          ```bash
          git tag "v${VERSION}"
          git push origin --tags
          ```
 
-      4. Verify:
+      5. Verify:
          ```bash
          npm view @shazhou/proman@${VERSION} version
          ```
          Check tag on Gitea via API. If verification fails, output `$status: verify_failed`.
 
-      5. Sync to GitHub (if remote exists):
+      6. Sync to GitHub (if remote exists):
          ```bash
          git remote -v | grep github
          git push github main --tags
          ```
          Note result but do NOT fail the release if GitHub sync fails.
 
-      6. Output `$status: released` with package, version, tag, githubSync.
+      7. Output `$status: released` with package, version, tag, githubSync.
 
     output: "released, failed, or verify_failed"
     frontmatter:
