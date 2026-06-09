@@ -5,7 +5,7 @@ tags: [release, npm, git]
 ---
 
 ## Given
-- Packages have been bumped to new versions
+- Packages have been bumped to new versions (version read from each package's `package.json`)
 
 ## When
 - `proman publish` runs

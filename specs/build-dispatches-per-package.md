@@ -14,4 +14,4 @@ tags: [tsc, package-order]
 ## Then
 - Each package builds via `pnpm exec tsc --build` (lib, cli, api) or `pnpm exec vite build` (webui)
 - Build order follows proman.yaml declaration order (assumed topo-sorted)
-- dist/ and tsbuildinfo are cleaned before each package build
+- `dist/` directory and `*.tsbuildinfo` files are cleaned before each package's build step

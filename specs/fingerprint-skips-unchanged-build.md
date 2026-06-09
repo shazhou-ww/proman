@@ -6,7 +6,7 @@ tags: [fingerprint, skip, cache]
 
 ## Given
 - Package A was previously built successfully
-- No source files (.ts), package.json, or tsconfig.json changed since last build
+- No source files changed (`src/**/*.ts`), package.json, or tsconfig.json unchanged since last build
 - Fingerprint cache exists at `.proman/build/@scope-a.fingerprint`
 
 ## When
