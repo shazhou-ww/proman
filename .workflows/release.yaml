@@ -9,17 +9,12 @@ roles:
     procedure: |
       cd into the repo path from the task prompt.
 
-      Check ALL conditions — abort on first failure with `$status: not_ready`:
+      Check base conditions — abort on first failure with `$status: not_ready`:
 
       1. On `main` branch (`git branch --show-current`)
       2. Clean working tree (`git status --porcelain` is empty)
       3. Up to date (`git pull --ff-only` succeeds)
-      4. Pending changesets exist:
-         ```bash
-         find .changeset -name '*.md' ! -name 'README.md' -type f
-         ```
-         If none found, not_ready with "no pending changesets".
-      5. CI green on HEAD:
+      4. CI green on HEAD:
          ```bash
          GITEA_TOKEN=$(cfg get GITEA_TOKEN)
          HEAD_SHA=$(git rev-parse HEAD)
@@ -27,8 +22,27 @@ roles:
          Poll `GET /api/v1/repos/<owner/repo>/commits/${HEAD_SHA}/status` up to 10× (30s interval).
          Accept `success`. Fail on `failure`/`error`. Timeout after ~5min if still `pending`.
 
-      If all pass, output `$status: ready` with the changeset filenames listed, and pass through `repo` and `repoPath` from the task prompt.
-    output: "ready with changeset list, or not_ready with reason"
+      Then check changeset and publish state:
+
+      5. Look for pending changesets:
+         ```bash
+         find .changeset -name '*.md' ! -name 'README.md' -type f
+         ```
+
+      6. Read current version from package.json and check npm:
+         ```bash
+         LOCAL_VERSION=$(node -e "console.log(require('./package.json').version)")
+         PACKAGE_NAME=$(node -e "console.log(require('./package.json').name)")
+         NPM_VERSION=$(npm view ${PACKAGE_NAME}@${LOCAL_VERSION} version 2>/dev/null || echo "")
+         ```
+
+      Decision:
+      - Changesets found → output `$status: ready` with changeset list (normal full flow)
+      - No changesets, but local version NOT on npm → output `$status: already_bumped` with version (skip bumper, go straight to publish)
+      - No changesets, and local version already on npm → output `$status: not_ready` with reason "no pending changesets and current version already published"
+
+      Pass through `repo` and `repoPath` from the task prompt in all non-error outputs.
+    output: "ready, already_bumped, or not_ready"
     frontmatter:
       oneOf:
         - properties:
@@ -37,6 +51,12 @@ roles:
             repo: { type: string }
             repoPath: { type: string }
           required: [$status, changesets, repo, repoPath]
+        - properties:
+            $status: { const: "already_bumped" }
+            version: { type: string }
+            repo: { type: string }
+            repoPath: { type: string }
+          required: [$status, version, repo, repoPath]
         - properties:
             $status: { const: "not_ready" }
             reason: { type: string }
@@ -208,6 +228,7 @@ graph:
     resume: { role: "preflight", prompt: "Re-check release readiness for {{{repo}}} at {{{repoPath}}}." }
   preflight:
     ready: { role: "bumper", prompt: "Bump version for {{{repo}}} at {{{repoPath}}}. Pending changesets:\n{{{changesets}}}" }
+    already_bumped: { role: "publisher", prompt: "Publish {{{repo}}} v{{{version}}} from {{{repoPath}}}. Version already bumped, skipping to publish." }
     not_ready: { role: "$END", prompt: "⏸ Release aborted: {{{reason}}}" }
   bumper:
     merged: { role: "publisher", prompt: "Publish {{{repo}}} v{{{version}}} from {{{repoPath}}}. Release PR #{{{prNumber}}} merged." }
