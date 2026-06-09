@@ -116,14 +116,18 @@ roles:
 
     output: "merged after PR is reviewed, or $SUSPEND while waiting"
     frontmatter:
-      type: object
-      properties:
-        $status: { const: "merged" }
-        version: { type: string }
-        prNumber: { type: string }
-        repo: { type: string }
-        repoPath: { type: string }
-      required: [$status, version, repo, repoPath]
+      oneOf:
+        - properties:
+            $status: { const: "merged" }
+            version: { type: string }
+            prNumber: { type: string }
+            repo: { type: string }
+            repoPath: { type: string }
+          required: [$status, version, repo, repoPath]
+        - properties:
+            $status: { const: "failed" }
+            reason: { type: string }
+          required: [$status, reason]
 
   publisher:
     description: "Build, test, publish to npm with OTP, tag, verify, sync"
@@ -207,6 +211,7 @@ graph:
     not_ready: { role: "$END", prompt: "⏸ Release aborted: {{{reason}}}" }
   bumper:
     merged: { role: "publisher", prompt: "Publish {{{repo}}} v{{{version}}} from {{{repoPath}}}. Release PR #{{{prNumber}}} merged." }
+    failed: { role: "$END", prompt: "❌ Bump failed: {{{reason}}}" }
   publisher:
     released: { role: "$END", prompt: "✅ Released {{{package}}}@{{{version}}}. Tag: {{{tag}}}. GitHub: {{{githubSync}}}" }
     failed: { role: "$END", prompt: "❌ Release failed: {{{reason}}}" }
