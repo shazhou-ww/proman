@@ -8,27 +8,24 @@ describe('proman init integration', () => {
   let testDir: string
   let projectDir: string
 
-  beforeAll(
-    () => {
-      // Create a unique temp directory for integration test
-      testDir = join(
-        tmpdir(),
-        `proman-init-integration-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      )
-      mkdirSync(testDir, { recursive: true })
-      projectDir = join(testDir, 'test-project')
+  beforeAll(() => {
+    // Create a unique temp directory for integration test
+    testDir = join(
+      tmpdir(),
+      `proman-init-integration-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    )
+    mkdirSync(testDir, { recursive: true })
+    projectDir = join(testDir, 'test-project')
 
-      // Get the path to the proman CLI
-      const promanBin = join(process.cwd(), 'dist', 'cli.js')
+    // Get the path to the proman CLI
+    const promanBin = join(process.cwd(), 'dist', 'cli.js')
 
-      // Run proman init
-      execSync(`node ${promanBin} init test-project`, { cwd: testDir })
+    // Run proman init
+    execSync(`node ${promanBin} init test-project`, { cwd: testDir })
 
-      // Install dependencies
-      execSync('pnpm install', { cwd: projectDir, stdio: 'inherit' })
-    },
-    { timeout: 60000 },
-  )
+    // Install dependencies
+    execSync('pnpm install', { cwd: projectDir, stdio: 'inherit' })
+  }, 60000)
 
   afterAll(() => {
     // Clean up the test directory
