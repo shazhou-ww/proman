@@ -63,9 +63,7 @@ describe('link command - provider mode (without args)', () => {
     const { spawn } = makeSpawn()
 
     // When/Then: should throw error about missing build
-    await expect(link({ cwd: pkgDir, spawn })).rejects.toThrow(
-      'No build artifacts found. Run `proman build` first.',
-    )
+    await expect(link({ cwd: pkgDir, spawn })).rejects.toThrow('No dist/ folder in')
   })
 
   test('Test 3: throws error when not in package directory', async () => {
@@ -75,7 +73,7 @@ describe('link command - provider mode (without args)', () => {
     const { spawn } = makeSpawn()
 
     // When/Then: should throw error
-    await expect(link({ cwd: pkgDir, spawn })).rejects.toThrow('Not in a package directory')
+    await expect(link({ cwd: pkgDir, spawn })).rejects.toThrow('Missing package.json in')
   })
 
   test('Test 4: throws error when package.json has no name field', async () => {
@@ -87,7 +85,7 @@ describe('link command - provider mode (without args)', () => {
     const { spawn } = makeSpawn()
 
     // When/Then: should throw error
-    await expect(link({ cwd: pkgDir, spawn })).rejects.toThrow('Not in a package directory')
+    await expect(link({ cwd: pkgDir, spawn })).rejects.toThrow('missing a "name" field')
   })
 })
 
@@ -146,7 +144,7 @@ describe('link command - consumer mode (with package arg)', () => {
     // When/Then: should throw error
     await expect(
       link({ cwd: consumerDir, packageName: '@scope/unknown-package', spawn }),
-    ).rejects.toThrow('@scope/unknown-package is not in dependencies or devDependencies')
+    ).rejects.toThrow('not found in dependencies or devDependencies')
   })
 
   test('Test 5b: allows linking package in devDependencies', async () => {
@@ -416,6 +414,6 @@ describe('readPackageJson validation', () => {
 
     // When/Then: readPackageJson succeeds, but link fails due to missing name
     // This validates that readPackageJson accepts empty objects
-    await expect(link({ cwd: pkgDir, spawn })).rejects.toThrow('Not in a package directory')
+    await expect(link({ cwd: pkgDir, spawn })).rejects.toThrow('missing a "name" field')
   })
 })

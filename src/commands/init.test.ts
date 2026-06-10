@@ -163,4 +163,17 @@ describe('proman init', () => {
     )
     expect(corePackageJson.name).toBe('@my-project/core')
   })
+
+  test('truncates package name at 214 characters', async () => {
+    const longName = 'a'.repeat(250)
+    const projectDir = join(testDir, longName)
+    await init({ targetDir: projectDir })
+
+    const corePackageJson = JSON.parse(
+      readFileSync(join(projectDir, 'packages/core/package.json'), 'utf-8'),
+    )
+    // scope '@' + name + '/core' — the name segment itself is capped at 214
+    const nameSegment = corePackageJson.name.replace(/^@/, '').replace(/\/core$/, '')
+    expect(nameSegment.length).toBeLessThanOrEqual(214)
+  })
 })
