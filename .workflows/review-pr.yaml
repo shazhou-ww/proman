@@ -95,7 +95,8 @@ roles:
             $status: { const: "already_approved" }
             repo: { type: string }
             prNumber: { type: integer }
-          required: [$status, repo, prNumber]
+            selfReview: { type: boolean }
+          required: [$status, repo, prNumber, selfReview]
 
   reviewer:
     description: "Structured code review — decide if the PR can merge"
