@@ -15,13 +15,13 @@ function readPackageJson(cwd: string): {
 } {
   const pkgPath = join(cwd, 'package.json')
   if (!existsSync(pkgPath)) {
-    throw new Error('Not in a package directory')
+    throw new Error(`Missing package.json in ${cwd}`)
   }
   const json = JSON.parse(readFileSync(pkgPath, 'utf-8'))
 
   // Runtime validation: ensure parsed value is an object (not array, primitive, or null)
   if (typeof json !== 'object' || json === null || Array.isArray(json)) {
-    throw new Error(`Invalid package.json at ${pkgPath}`)
+    throw new Error(`Invalid package.json at ${pkgPath}: expected a JSON object`)
   }
 
   return json
@@ -44,7 +44,9 @@ export async function link(opts: LinkCommandOptions): Promise<void> {
     const pkg = readPackageJson(cwd)
     const allDeps = { ...pkg.dependencies, ...pkg.devDependencies }
     if (!allDeps[opts.packageName]) {
-      throw new Error(`${opts.packageName} is not in dependencies or devDependencies`)
+      throw new Error(
+        `Package "${opts.packageName}" not found in dependencies or devDependencies of ${cwd}`,
+      )
     }
 
     await runOrThrow(spawn, ['pnpm', 'link', '--global', opts.packageName], cwd)
@@ -55,11 +57,11 @@ export async function link(opts: LinkCommandOptions): Promise<void> {
   // Provider mode: link current package globally
   const pkg = readPackageJson(cwd)
   if (!pkg.name) {
-    throw new Error('Not in a package directory')
+    throw new Error(`package.json in ${cwd} is missing a "name" field`)
   }
 
   if (!hasDistFolder(cwd)) {
-    throw new Error('No build artifacts found. Run `proman build` first.')
+    throw new Error(`No dist/ folder in ${cwd}. Run \`proman build\` first.`)
   }
 
   await runOrThrow(spawn, ['pnpm', 'link', '--global'], cwd)

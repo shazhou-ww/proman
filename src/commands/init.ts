@@ -10,7 +10,17 @@ function jsonStringify(obj: unknown): string {
   return JSON.stringify(obj, null, 2)
 }
 
-/** Sanitize directory name into a valid npm package name segment */
+/**
+ * Sanitize a directory name into a valid npm package name segment.
+ *
+ * Rules applied (per https://github.com/npm/validate-npm-package-name):
+ * - lowercase only
+ * - strip characters not in `[a-z0-9._-]` (replaces with hyphens)
+ * - strip leading `.`, `_`, or `-`
+ * - collapse consecutive hyphens
+ * - enforce 214-character npm limit
+ * - fall back to `'my-project'` if nothing remains
+ */
 function toPackageName(dirName: string): string {
   return (
     dirName

@@ -176,10 +176,16 @@ export function pkgNameToFilename(name: string): string {
 }
 
 /**
- * Get the fingerprint file path for a command and optional package name.
+ * Get the path where a fingerprint file should be stored.
  *
- * For build command: stores fingerprint inside package's dist folder.
- * For other commands (test, check): stores in .proman directory.
+ * Storage strategy differs by command type:
+ * - **build**: stores fingerprint at `<pkg>/dist/.build-fingerprint` so that
+ *   deleting `dist/` (clean build) automatically invalidates the cache.
+ * - **test / check**: stores in `.proman/<command>/` directory, which is
+ *   independent of build artifacts and survives `dist/` cleanup.
+ *
+ * This separation ensures `rm -rf dist` forces a rebuild without
+ * accidentally invalidating test/check caches (and vice-versa).
  */
 export function fingerprintPath(cwd: string, command: string, pkgName?: string): string {
   if (command === 'build' && pkgName) {

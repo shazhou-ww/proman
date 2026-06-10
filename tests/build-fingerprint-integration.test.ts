@@ -1,3 +1,10 @@
+/**
+ * Integration tests for build fingerprint caching (fixes #135).
+ *
+ * Verifies that build fingerprints stored inside `dist/` are correctly
+ * invalidated when the output directory is removed, and that incremental
+ * builds skip unchanged packages.
+ */
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'

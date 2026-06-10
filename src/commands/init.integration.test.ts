@@ -23,9 +23,10 @@ describe('proman init integration', () => {
     // Run proman init
     execSync(`node ${promanBin} init test-project`, { cwd: testDir })
 
-    // Install dependencies — this installs @shazhou/proman as a devDep inside the generated project
+    // Install dependencies — this installs @shazhou/proman as a devDep inside the generated project.
+    // 60s timeout: pnpm install can be slow on first run (cold cache, registry fetch).
     execSync('pnpm install', { cwd: projectDir, stdio: 'inherit' })
-  }, 60000)
+  }, 60_000)
 
   afterAll(() => {
     // Clean up the test directory

@@ -58,7 +58,9 @@ export async function build(opts: DevCommandOptions): Promise<void> {
   // Execute builds
   for (const { idx, pkgDir } of toRun) {
     const pkg = cfg.packages[idx] as (typeof cfg.packages)[number]
-    // Clean output dir + tsbuildinfo before build to prevent stale artifacts
+    // Clean output dir + tsbuildinfo before build to prevent stale artifacts.
+    // Note: since build fingerprints live inside dist/ (see fingerprintPath()),
+    // removing dist/ intentionally invalidates the build cache for this package.
     const outDir = join(pkgDir, 'dist')
     if (existsSync(outDir)) {
       rmSync(outDir, { recursive: true })
