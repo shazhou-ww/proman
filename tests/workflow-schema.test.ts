@@ -1,7 +1,7 @@
-import { describe, test, expect } from 'vitest'
-import { readFileSync, existsSync } from 'node:fs'
-import { parse as parseYAML } from 'yaml'
+import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { describe, expect, test } from 'vitest'
+import { parse as parseYAML } from 'yaml'
 
 describe('Issue #154: Add selfReview to already_approved variant in review-pr.yaml', () => {
   const reviewPrPath = resolve(__dirname, '../.workflows/review-pr.yaml')
@@ -74,7 +74,9 @@ describe('Issue #156: Replace sed token extraction with cfg-based approach in tr
     const procedure = parsed.roles.triager.procedure
 
     // This sed pattern should remain (only token extraction is changing)
-    expect(procedure).toContain("git remote get-url origin | sed 's/.*[:/]\\([^/]*\\/[^.]*\\).*/\\1/'")
+    expect(procedure).toContain(
+      "git remote get-url origin | sed 's/.*[:/]\\([^/]*\\/[^.]*\\).*/\\1/'",
+    )
   })
 })
 
