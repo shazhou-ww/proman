@@ -2,7 +2,12 @@ import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { loadConfig } from '../config/load-config.ts'
 import { createGitOps, type GitOps } from '../utils/git.ts'
-import { createNpmRunner, type NpmRunner } from '../utils/npm.ts'
+import {
+  createNpmRunner,
+  defaultRegistryFetch,
+  type NpmRegistryFetch,
+  type NpmRunner,
+} from '../utils/npm.ts'
 
 export type { GitOps } from '../utils/git.ts'
 export type { NpmRunner } from '../utils/npm.ts'
@@ -12,6 +17,7 @@ export type PublishOptions = {
   cwd?: string
   git?: GitOps
   npm?: NpmRunner
+  registryFetch?: NpmRegistryFetch
 }
 
 const AUTHOR = '小橘 <xiaoju@shazhou.work>'
@@ -40,6 +46,7 @@ export async function publish(opts: PublishOptions = {}): Promise<void> {
   const { skipTests = false } = opts
   const cwd = opts.cwd ?? process.cwd()
   const git = opts.git ?? createGitOps(cwd)
+  const fetchVersions = opts.registryFetch ?? defaultRegistryFetch
 
   const cfg = loadConfig(cwd)
   const npm = opts.npm ?? createNpmRunner(cwd)
@@ -91,11 +98,20 @@ export async function publish(opts: PublishOptions = {}): Promise<void> {
     const isRc = isRcVersion(version)
     const publishTag = isRc ? 'rc' : 'latest'
     const pkgDir = resolve(cwd, entry.path)
+
+    // Pre-check: skip if already published on registry
+    const existingVersions = await fetchVersions(entry.name)
+    if (existingVersions.includes(version)) {
+      console.log(`⏭ skipped ${entry.name}@${version} (already published)`)
+      continue
+    }
+
     try {
       await npm.publish(pkgDir, { tag: publishTag, ...(access ? { access } : {}) })
       console.log(`✓ published ${entry.name}@${version}`)
     } catch (err) {
       const message = (err as Error).message
+      // Fallback: catch the error in case of race condition
       if (isAlreadyPublished(message)) {
         console.log(`⏭ skipped ${entry.name}@${version} (already published)`)
         continue

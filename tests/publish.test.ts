@@ -258,6 +258,39 @@ describe('publish packages', () => {
     expect(published.some((d) => d.includes('cli'))).toBe(true)
   })
 
+  test('pre-checks registry and skips already-published without calling npm publish', async () => {
+    await setupFixture(tmp, { multiPkg: true })
+    const { git } = makeGit()
+    const published: string[] = []
+    const { npm } = makeNpm({
+      publish: async (dir) => {
+        published.push(dir)
+      },
+    })
+    // Mock registry: core@0.3.0 already exists
+    const registryFetch = async (pkg: string) => {
+      if (pkg === '@test/core') return ['0.1.0', '0.2.0', '0.3.0']
+      return []
+    }
+    const logs: string[] = []
+    const origLog = console.log
+    console.log = (...args: unknown[]) => logs.push(args.join(' '))
+    try {
+      await publish({ cwd: tmp, git, npm, registryFetch })
+    } finally {
+      console.log = origLog
+    }
+
+    // core should be skipped via pre-check, not via error catch
+    expect(logs.some((l) => l.includes('⏭ skipped @test/core@0.3.0 (already published)'))).toBe(
+      true,
+    )
+    // npm.publish should NOT have been called for core
+    expect(published.some((d) => d.includes('core'))).toBe(false)
+    // cli should still be published
+    expect(published.some((d) => d.includes('cli'))).toBe(true)
+  })
+
   test('real publish errors still abort', async () => {
     await setupFixture(tmp, { multiPkg: true })
     const { git } = makeGit()
