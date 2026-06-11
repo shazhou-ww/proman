@@ -3,25 +3,24 @@ import { resolve } from 'node:path'
 import { describe, expect, test } from 'vitest'
 import { parse as parseYAML } from 'yaml'
 
-describe('Issue #154: Add selfReview to already_approved variant in review-pr.yaml', () => {
+describe('Issue #154: already_approved variant in review-pr.yaml', () => {
   const reviewPrPath = resolve(__dirname, '../.workflows/review-pr.yaml')
 
-  test('T154.1: already_approved variant includes selfReview property', () => {
+  test('T154.1: already_approved variant does NOT include selfReview (synced with uwf)', () => {
     const yaml = readFileSync(reviewPrPath, 'utf8')
     const parsed = parseYAML(yaml)
     const alreadyApproved = parsed.roles.fetcher.frontmatter.oneOf[1]
 
-    expect(alreadyApproved.properties.selfReview).toBeDefined()
-    expect(alreadyApproved.properties.selfReview.type).toBe('boolean')
+    expect(alreadyApproved.properties.selfReview).toBeUndefined()
   })
 
-  test('T154.2: already_approved variant requires selfReview', () => {
+  test('T154.2: already_approved variant requires only $status, repo, prNumber', () => {
     const yaml = readFileSync(reviewPrPath, 'utf8')
     const parsed = parseYAML(yaml)
     const alreadyApproved = parsed.roles.fetcher.frontmatter.oneOf[1]
 
-    expect(alreadyApproved.required).toContain('selfReview')
-    expect(alreadyApproved.required).toEqual(['$status', 'repo', 'prNumber', 'selfReview'])
+    expect(alreadyApproved.required).not.toContain('selfReview')
+    expect(alreadyApproved.required).toEqual(['$status', 'repo', 'prNumber'])
   })
 
   test('T154.3: ready variant maintains selfReview field (regression)', () => {
