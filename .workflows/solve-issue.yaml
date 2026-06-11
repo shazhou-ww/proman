@@ -1,4 +1,5 @@
 name: "solve-issue"
+version: 1
 description: "TDD-driven issue resolution for small, focused changes. Loop protection relies on engine maxRounds. Uses pnpm."
 roles:
   planner:
@@ -236,18 +237,18 @@ graph:
     new: { role: "planner", prompt: "Analyze the issue and produce an implementation plan." }
     resume: { role: "planner", prompt: "Review the previous run output and continue the work." }
   planner:
-    ready: { role: "developer", prompt: "Implement the TDD test spec (CAS hash: {{{plan}}}) in repo {{{repoPath}}}." }
-    continue: { role: "developer", prompt: "Continue work on existing branch {{{branch}}} at worktree {{{worktree}}}. Implement the revised TDD test spec (CAS hash: {{{plan}}}) in repo {{{repoPath}}}. Do NOT create a new branch or worktree — cd into the existing worktree and work there." }
+    ready: { role: "developer", prompt: "Implement the TDD test spec (CAS hash: {{ plan }}) in repo {{ repoPath }}." }
+    continue: { role: "developer", prompt: "Continue work on existing branch {{ branch }} at worktree {{ worktree }}. Implement the revised TDD test spec (CAS hash: {{ plan }}) in repo {{ repoPath }}. Do NOT create a new branch or worktree — cd into the existing worktree and work there." }
   developer:
-    done: { role: "reviewer", prompt: "Review branch {{{branch}}} at {{{worktree}}} for code standards compliance." }
-    failed: { role: "$END", prompt: "Developer failed: {{{reason}}}. Ending workflow." }
+    done: { role: "reviewer", prompt: "Review branch {{ branch }} at {{ worktree }} for code standards compliance." }
+    failed: { role: "$END", prompt: "Developer failed: {{ reason }}. Ending workflow." }
   reviewer:
-    rejected: { role: "developer", prompt: "Reviewer rejected: {{{comments}}}. Fix the issues in repo {{{worktree}}}." }
-    approved: { role: "tester", prompt: "Review passed. Run tests on branch {{{branch}}} at {{{worktree}}}." }
+    rejected: { role: "developer", prompt: "Reviewer rejected: {{ comments }}. Fix the issues in repo {{ worktree }}." }
+    approved: { role: "tester", prompt: "Review passed. Run tests on branch {{ branch }} at {{ worktree }}." }
   tester:
-    fix_code: { role: "developer", prompt: "Tests found code issues: {{{report}}}. Fix and re-submit." }
-    fix_spec: { role: "planner", prompt: "Tests found spec issues: {{{report}}}. Revise the test spec." }
-    passed: { role: "committer", prompt: "All tests passed. Commit and push branch {{{branch}}} from {{{worktree}}}." }
+    fix_code: { role: "developer", prompt: "Tests found code issues: {{ report }}. Fix and re-submit." }
+    fix_spec: { role: "planner", prompt: "Tests found spec issues: {{ report }}. Revise the test spec." }
+    passed: { role: "committer", prompt: "All tests passed. Commit and push branch {{ branch }} from {{ worktree }}." }
   committer:
-    hook_failed: { role: "developer", prompt: "Push hook failed: {{{error}}}. Fix and re-submit." }
-    committed: { role: "$END", prompt: "PR created: {{{prUrl}}}. Workflow complete." }
+    hook_failed: { role: "developer", prompt: "Push hook failed: {{ error }}. Fix and re-submit." }
+    committed: { role: "$END", prompt: "PR created: {{ prUrl }}. Workflow complete." }

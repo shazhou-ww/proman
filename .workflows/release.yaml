@@ -1,4 +1,5 @@
 name: "release"
+version: 1
 description: "Release proman with $SUSPEND gates for PR review and npm OTP."
 roles:
   preflight:
@@ -214,16 +215,16 @@ roles:
 
 graph:
   $START:
-    new: { role: "preflight", prompt: "Pre-flight check for releasing {{{repo}}} from {{{repoPath}}}." }
-    resume: { role: "preflight", prompt: "Re-check release readiness for {{{repo}}} at {{{repoPath}}}." }
+    new: { role: "preflight", prompt: "Pre-flight check for releasing {{ repo }} from {{ repoPath }}." }
+    resume: { role: "preflight", prompt: "Re-check release readiness for {{ repo }} at {{ repoPath }}." }
   preflight:
-    ready: { role: "bumper", prompt: "Bump version for {{{repo}}} at {{{repoPath}}}. Pending changesets:\n{{{changesets}}}" }
-    already_bumped: { role: "publisher", prompt: "Publish {{{repo}}} v{{{version}}} from {{{repoPath}}}. Version already bumped, skipping to publish." }
-    not_ready: { role: "$END", prompt: "⏸ Release aborted: {{{reason}}}" }
+    ready: { role: "bumper", prompt: "Bump version for {{ repo }} at {{ repoPath }}. Pending changesets:\n{{ changesets }}" }
+    already_bumped: { role: "publisher", prompt: "Publish {{ repo }} v{{ version }} from {{ repoPath }}. Version already bumped, skipping to publish." }
+    not_ready: { role: "$END", prompt: "⏸ Release aborted: {{ reason }}" }
   bumper:
-    merged: { role: "publisher", prompt: "Publish {{{repo}}} v{{{version}}} from {{{repoPath}}}. Release PR #{{{prNumber}}} merged." }
-    failed: { role: "$END", prompt: "❌ Bump failed: {{{reason}}}" }
+    merged: { role: "publisher", prompt: "Publish {{ repo }} v{{ version }} from {{ repoPath }}. Release PR #{{ prNumber }} merged." }
+    failed: { role: "$END", prompt: "❌ Bump failed: {{ reason }}" }
   publisher:
-    released: { role: "$END", prompt: "✅ Released {{{package}}}@{{{version}}}. Tag: {{{tag}}}. GitHub: {{{githubSync}}}" }
-    failed: { role: "$END", prompt: "❌ Release failed: {{{reason}}}" }
-    verify_failed: { role: "$END", prompt: "⚠️ Verification failed: {{{reason}}}" }
+    released: { role: "$END", prompt: "✅ Released {{ package }}@{{ version }}. Tag: {{ tag }}. GitHub: {{ githubSync }}" }
+    failed: { role: "$END", prompt: "❌ Release failed: {{ reason }}" }
+    verify_failed: { role: "$END", prompt: "⚠️ Verification failed: {{ reason }}" }
