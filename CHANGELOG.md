@@ -1,5 +1,19 @@
 # @shazhou/proman
 
+## 0.8.0 (2026-06-12)
+
+### Features
+
+- **proman init** — Scaffold new pnpm monorepos with two example packages, pre-configured build/test/check/format
+- **proman link / unlink** — Local package linking workflow based on pnpm link, with build verification and symlink detection
+
+### Fixes
+
+- Add runtime validation to `readPackageJson` in link.ts to reject non-object JSON values
+- Fix workflow schema inconsistencies and improve token extraction robustness
+- Consolidate `runOrThrow` helper (internal refactor, no user-facing changes)
+
+
 ## v0.7.0 (2026-06-09)
 
 ### feat
