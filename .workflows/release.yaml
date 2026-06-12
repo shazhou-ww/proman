@@ -20,8 +20,24 @@ roles:
          GITEA_TOKEN=$(cfg get GITEA_TOKEN)
          HEAD_SHA=$(git rev-parse HEAD)
          ```
-         Poll `GET /api/v1/repos/<owner/repo>/commits/${HEAD_SHA}/status` up to 10× (30s interval).
-         Accept `success`. Fail on `failure`/`error`. Timeout after ~5min if still `pending`.
+         Poll `GET /api/v1/repos/<owner/repo>/commits/${HEAD_SHA}/statuses` (plural, with 's')
+         up to 10× (30s interval).
+
+         Group results by `context` field. For each context, keep only the entry with the
+         latest `created_at` timestamp. Evaluate only these latest-per-context entries:
+
+         - All `success` → accept, proceed.
+         - Any `pending`, none newer → keep polling.
+         - At least one context's latest is `success`, no `pending` → accept
+           (a newer successful run supersedes an older failure under a different context).
+         - All latest entries are `failure`/`error` → run local verification fallback:
+           ```bash
+           pnpm build && pnpm test
+           ```
+           If local tests pass → accept with warning ("CI status stale/flaky, local verification passed").
+           If local tests also fail → abort with `$status: not_ready`.
+
+         Timeout after ~5min if still `pending`.
 
       Then check changeset and publish state:
 
