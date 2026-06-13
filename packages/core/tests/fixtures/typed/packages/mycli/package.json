@@ -1,0 +1,7 @@
+{
+  "name": "@test/mycli",
+  "version": "0.1.0",
+  "scripts": {
+    "build": "esbuild src/cli.ts --bundle --outfile=dist/cli.js"
+  }
+}
