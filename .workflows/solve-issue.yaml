@@ -20,9 +20,10 @@ roles:
       **Mode A — Fresh issue (first time, no existing PR):**
       1. Read the issue and all comments from Gitea using `tea issues <number> -r <owner/repo>`
       2. Look for project conventions files (CLAUDE.md, CONTRIBUTING.md, .cursor/rules/) in the repo
-      3. Assess whether the issue has enough information to produce a spec
-      4. If insufficient info: comment on the issue via `echo "..." | tea comment <number> -r <owner/repo>` (skip if you already commented), then yield by outputting $status=$SUSPEND with a reason describing what's missing. The engine suspends the thread; a human can `uwf thread resume` once the info is provided.
-      5. Create a worktree for this issue:
+      3. Read `specs/README.md` to understand the spec format and conventions
+      4. Assess whether the issue has enough information to produce a spec
+      5. If insufficient info: comment on the issue via `echo "..." | tea comment <number> -r <owner/repo>` (skip if you already commented), then yield by outputting $status=$SUSPEND with a reason describing what's missing. The engine suspends the thread; a human can `uwf thread resume` once the info is provided.
+      6. Create a worktree for this issue:
          ```bash
          cd <repoPath>
          git fetch origin
@@ -30,7 +31,7 @@ roles:
          cd .worktrees/fix/<issue-number>-<short-slug>
          pnpm install
          ```
-      6. Write spec files inside the worktree's `specs/<feature>-<behavior>.md` following the Given/When/Then format:
+      7. Write spec files inside the worktree's `specs/<feature>-<behavior>.md` following the Given/When/Then format:
          ```markdown
          ---
          scenario: "One-line description"
@@ -51,8 +52,8 @@ roles:
          ```
          If the issue covers multiple behaviors, write multiple spec files.
          If a spec file already exists for the same behavior, update it rather than creating a duplicate.
-      7. specFiles MUST be non-empty — at least one spec file must be written. If no spec can be produced, use $SUSPEND instead.
-      8. Output **$status=ready** with specFiles (list of written spec file paths relative to repo root, e.g. `specs/publish-skip-existing.md`), repoPath, worktree, and branch
+      8. specFiles MUST be non-empty — at least one spec file must be written. If no spec can be produced, use $SUSPEND instead.
+      9. Output **$status=ready** with specFiles (list of written spec file paths relative to repo root, e.g. `specs/publish-skip-existing.md`), repoPath, worktree, and branch
 
       **Mode B — Continue on existing PR (prompt mentions PR, branch, or review feedback):**
       YOU MUST output $status=continue (NOT ready) when in this mode.
@@ -104,7 +105,7 @@ roles:
          - You MUST actually edit the files to address the feedback. Do NOT claim fixes without running commands.
       4. ALL subsequent work must happen inside the worktree directory.
 
-      Then implement:
+      Then implement TDD:
       5. Read all spec files listed in your task prompt: `cat specs/<file>.md` for each one
       6. If bounced back from reviewer or tester: read the feedback carefully, then execute the actual fix commands — edit files, run build, run tests. Never output "done" without tool calls.
       7. Assess the change type:
@@ -124,6 +125,7 @@ roles:
           - `patch` for bug fixes, internal refactors, test-only changes
           - `minor` for new features, new CLI commands, new API surfaces
           - `major` for breaking changes
+          List every affected package in the changeset frontmatter.
       12. Update documentation if the change affects user-facing behavior:
           - `README.md` — usage examples, feature descriptions
           - `.cards/` — architecture decision records (if applicable)
@@ -173,7 +175,7 @@ roles:
          - CLI `--help` text matches new flags/commands
 
       Spec file checks:
-      8. Verify that any new or modified spec files in `specs/` follow the Given/When/Then format
+      8. Verify that any new or modified spec files in `specs/` follow the format in `specs/README.md`
       9. Spec frontmatter has required fields (scenario, feature, tags)
 
       Only review standards compliance. Do NOT test functionality.
