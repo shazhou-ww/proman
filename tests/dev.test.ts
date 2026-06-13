@@ -158,6 +158,129 @@ describe('check command', () => {
   })
 })
 
+describe('check — workflow validation', () => {
+  let tmpDir: string
+
+  function writeCheckFixture(opts: {
+    workflows?: Record<string, string>
+    uwfInstalled?: boolean
+    uwfExitCode?: number
+    uwfStderr?: string
+  }): { cwd: string; spawn: SpawnFn; calls: Call[] } {
+    tmpDir = resolve(
+      tmpdir(),
+      `proman-wf-check-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    )
+    mkdirSync(tmpDir, { recursive: true })
+
+    // minimal proman.yaml
+    writeFileSync(
+      join(tmpDir, 'proman.yaml'),
+      'packages:\n  - name: "@test/core"\n    path: packages/core\n    type: lib\n',
+    )
+    mkdirSync(join(tmpDir, 'packages/core/src'), { recursive: true })
+    writeFileSync(join(tmpDir, 'packages/core/src/index.ts'), 'export const x = 1')
+    writeFileSync(join(tmpDir, 'packages/core/package.json'), '{}')
+
+    // .workflows/ files
+    if (opts.workflows) {
+      mkdirSync(join(tmpDir, '.workflows'), { recursive: true })
+      for (const [name, content] of Object.entries(opts.workflows)) {
+        writeFileSync(join(tmpDir, '.workflows', name), content)
+      }
+    }
+
+    const calls: Call[] = []
+    const uwfInstalled = opts.uwfInstalled ?? true
+    const uwfExitCode = opts.uwfExitCode ?? 0
+    const uwfStderr = opts.uwfStderr ?? ''
+
+    const spawn: SpawnFn = async (argv, cwd) => {
+      calls.push({ argv, cwd })
+      // biome check always passes
+      if (argv.includes('biome')) return { code: 0, stdout: '', stderr: '' }
+      // which uwf
+      if (argv[0] === 'which' && argv[1] === 'uwf') {
+        return { code: uwfInstalled ? 0 : 1, stdout: '', stderr: '' }
+      }
+      // uwf workflow validate
+      if (argv[0] === 'uwf' && argv[1] === 'workflow' && argv[2] === 'validate') {
+        return { code: uwfExitCode, stdout: uwfExitCode === 0 ? '✓ valid' : '', stderr: uwfStderr }
+      }
+      return { code: 0, stdout: '', stderr: '' }
+    }
+
+    return { cwd: tmpDir, spawn, calls }
+  }
+
+  afterEach(() => {
+    if (tmpDir) rmSync(tmpDir, { recursive: true, force: true })
+  })
+
+  test('WF1: validates workflow files with uwf workflow validate', async () => {
+    const { cwd, spawn, calls } = writeCheckFixture({
+      workflows: { 'solve-issue.yaml': 'version: 1\nname: solve-issue\n' },
+    })
+    await check({ cwd, spawn })
+
+    const uwfCalls = calls.filter((c) => c.argv[0] === 'uwf')
+    expect(uwfCalls).toHaveLength(1)
+    expect(uwfCalls[0]?.argv[2]).toBe('validate')
+    expect(uwfCalls[0]?.argv[3]).toContain('solve-issue.yaml')
+  })
+
+  test('WF2: validates multiple workflow files', async () => {
+    const { cwd, spawn, calls } = writeCheckFixture({
+      workflows: {
+        'solve-issue.yaml': 'version: 1\nname: solve-issue\n',
+        'review-pr.yaml': 'version: 1\nname: review-pr\n',
+      },
+    })
+    await check({ cwd, spawn })
+
+    const uwfCalls = calls.filter((c) => c.argv[0] === 'uwf')
+    expect(uwfCalls).toHaveLength(2)
+  })
+
+  test('WF3: skips with warning when uwf is not installed', async () => {
+    const { cwd, spawn, calls } = writeCheckFixture({
+      workflows: { 'solve-issue.yaml': 'version: 1\nname: solve-issue\n' },
+      uwfInstalled: false,
+    })
+    await check({ cwd, spawn })
+
+    const uwfValidateCalls = calls.filter((c) => c.argv[0] === 'uwf' && c.argv[1] === 'workflow')
+    expect(uwfValidateCalls).toHaveLength(0)
+  })
+
+  test('WF4: throws when validation fails', async () => {
+    const { cwd, spawn } = writeCheckFixture({
+      workflows: { 'bad.yaml': 'invalid' },
+      uwfExitCode: 1,
+      uwfStderr: 'missing required field: name',
+    })
+    await expect(check({ cwd, spawn })).rejects.toThrow('Workflow validation failed')
+  })
+
+  test('WF5: no .workflows directory — skips silently', async () => {
+    const { cwd, spawn, calls } = writeCheckFixture({})
+    await check({ cwd, spawn })
+
+    const uwfCalls = calls.filter((c) => c.argv[0] === 'uwf' || c.argv[0] === 'which')
+    expect(uwfCalls).toHaveLength(0)
+  })
+
+  test('WF6: ignores non-yaml files in .workflows/', async () => {
+    const { cwd, spawn, calls } = writeCheckFixture({
+      workflows: { 'README.md': '# workflows' },
+    })
+    await check({ cwd, spawn })
+
+    const uwfCalls = calls.filter((c) => c.argv[0] === 'uwf' || c.argv[0] === 'which')
+    expect(uwfCalls).toHaveLength(0)
+  })
+})
+
 describe('format command', () => {
   test('C5: invokes pnpm exec biome format --write .', async () => {
     const { spawn, calls } = makeSpawn()

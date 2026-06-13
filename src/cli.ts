@@ -26,7 +26,7 @@ Commands:
                           --package <name>  Deploy a single package
                           --env <env>       Wrangler environment (e.g. staging)
   test                  Run tests
-  check                 Lint with biome
+  check                 Lint with biome + validate .workflows/ YAML
   format                Format with biome
   link [package]        Link local package for development
                           (no args)         Link current package globally
