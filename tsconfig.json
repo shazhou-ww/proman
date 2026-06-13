@@ -13,5 +13,5 @@
     "types": ["node"],
     "lib": ["ESNext"]
   },
-  "include": ["src/**/*", "tests/**/*"]
+  "include": ["packages/*/src/**/*", "packages/*/tests/**/*"]
 }

@@ -1,0 +1,46 @@
+{
+  "name": "@shazhou/proman",
+  "version": "0.8.0",
+  "type": "module",
+  "description": "CLI for managing TypeScript monorepos",
+  "keywords": [
+    "typescript",
+    "monorepo",
+    "build",
+    "cli",
+    "pnpm",
+    "biome",
+    "vitest"
+  ],
+  "bin": {
+    "proman": "./dist/cli.js"
+  },
+  "scripts": {
+    "test": "vitest run --passWithNoTests",
+    "build": "esbuild src/cli.ts --bundle --platform=node --format=esm --outfile=dist/cli.js --external:@shazhou/proman-core --external:@biomejs/biome --external:typescript --external:yaml --external:wrangler --external:vite"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "esbuild": "^0.28.0",
+    "typescript": "^5.0.0",
+    "vitest": "^4.0.0"
+  },
+  "dependencies": {
+    "@shazhou/proman-core": "workspace:*"
+  },
+  "peerDependencies": {
+    "@biomejs/biome": "^2.0.0",
+    "typescript": "^5.0.0",
+    "vite": "^6.0.0",
+    "vitest": "^4.0.0",
+    "wrangler": "^3.0.0"
+  },
+  "peerDependenciesMeta": {
+    "vite": {
+      "optional": true
+    },
+    "wrangler": {
+      "optional": true
+    }
+  }
+}

@@ -23,9 +23,6 @@ importers:
       wrangler:
         specifier: ^3.0.0
         version: 3.114.17
-      yaml:
-        specifier: ^2.9.0
-        version: 2.9.0
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -33,6 +30,59 @@ importers:
       esbuild:
         specifier: ^0.28.0
         version: 0.28.0
+
+  packages/cli:
+    dependencies:
+      '@biomejs/biome':
+        specifier: ^2.0.0
+        version: 2.4.16
+      '@shazhou/proman-core':
+        specifier: workspace:*
+        version: link:../core
+      vite:
+        specifier: ^6.0.0
+        version: 6.4.3(@types/node@22.19.19)(yaml@2.9.0)
+      wrangler:
+        specifier: ^3.0.0
+        version: 3.114.17
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.19
+      esbuild:
+        specifier: ^0.28.0
+        version: 0.28.0
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+      vitest:
+        specifier: ^4.0.0
+        version: 4.1.8(@types/node@22.19.19)(vite@6.4.3(@types/node@22.19.19)(yaml@2.9.0))
+
+  packages/core:
+    dependencies:
+      '@biomejs/biome':
+        specifier: ^2.0.0
+        version: 2.4.16
+      vite:
+        specifier: ^6.0.0
+        version: 6.4.3(@types/node@22.19.19)(yaml@2.9.0)
+      wrangler:
+        specifier: ^3.0.0
+        version: 3.114.17
+      yaml:
+        specifier: ^2.9.0
+        version: 2.9.0
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.19
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+      vitest:
+        specifier: ^4.0.0
+        version: 4.1.8(@types/node@22.19.19)(vite@6.4.3(@types/node@22.19.19)(yaml@2.9.0))
 
 packages:
 

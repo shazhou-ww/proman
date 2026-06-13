@@ -1,0 +1,45 @@
+{
+  "name": "@shazhou/proman-core",
+  "version": "0.8.0",
+  "type": "module",
+  "description": "Core library for TypeScript monorepo management",
+  "keywords": [
+    "typescript",
+    "monorepo",
+    "build",
+    "library"
+  ],
+  "exports": {
+    ".": "./dist/index.js",
+    "./commands": "./dist/commands/index.js",
+    "./utils": "./dist/utils/index.js",
+    "./config": "./dist/config/index.js"
+  },
+  "scripts": {
+    "test": "vitest run --passWithNoTests",
+    "build": "tsc --project tsconfig.build.json"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^4.0.0"
+  },
+  "dependencies": {
+    "yaml": "^2.9.0"
+  },
+  "peerDependencies": {
+    "@biomejs/biome": "^2.0.0",
+    "typescript": "^5.0.0",
+    "vite": "^6.0.0",
+    "vitest": "^4.0.0",
+    "wrangler": "^3.0.0"
+  },
+  "peerDependenciesMeta": {
+    "vite": {
+      "optional": true
+    },
+    "wrangler": {
+      "optional": true
+    }
+  }
+}
