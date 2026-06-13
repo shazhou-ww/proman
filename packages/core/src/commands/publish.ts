@@ -113,7 +113,12 @@ export async function publish(opts: PublishOptions = {}): Promise<void> {
 
     // Smoke test: validate tarball before publishing
     try {
-      await smokeTestTarball(pkgDir, spawn)
+      // Build workspace package map for symlink resolution
+      const workspacePackages: Record<string, string> = {}
+      for (const pkg of cfg.packages) {
+        workspacePackages[pkg.name] = resolve(cwd, pkg.path)
+      }
+      await smokeTestTarball(pkgDir, spawn, workspacePackages)
     } catch (err) {
       const message = (err as Error).message
       const published = publishablePackages.slice(0, i).map((p) => p.name)
