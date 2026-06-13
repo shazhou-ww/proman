@@ -39,10 +39,13 @@ export async function smokeTestTarball(pkgDir: string, spawn: SpawnFn): Promise<
     throw new Error(`pnpm pack failed: ${packResult.stderr || packResult.stdout}`)
   }
 
-  const tarballName = packResult.stdout.trim()
-  if (!tarballName) {
-    throw new Error('pnpm pack did not return tarball filename')
+  // pnpm pack outputs verbose info (📦, file list, etc.)
+  // Extract the .tgz filename from the output
+  const tgzMatch = packResult.stdout.match(/[\w@.-]+\.tgz/)
+  if (!tgzMatch) {
+    throw new Error(`pnpm pack did not return tarball filename. Output: ${packResult.stdout}`)
   }
+  const tarballName = tgzMatch[0]
 
   // Step 2: Extract tarball to temp directory
   const { mkdtemp } = await import('node:fs/promises')
