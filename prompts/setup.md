@@ -30,7 +30,7 @@ so that you know how to use the `proman` CLI.
    ```yaml
    ---
    name: proman
-   description: "Shazhou team pnpm monorepo dev scaffold — build, test, lint, bump, publish, and deploy in one CLI."
+   description: "Shazhou team pnpm monorepo dev scaffold — build, test, check, bump, publish, and deploy in one CLI."
    version: <VERSION>
    author: Shazhou
    license: MIT
