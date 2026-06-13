@@ -1,29 +1,28 @@
 {
-  "name": "@shazhou/proman",
+  "name": "@shazhou/proman-core",
   "version": "0.8.0",
   "type": "module",
-  "description": "Project manager CLI for TypeScript monorepos",
+  "description": "Core library for TypeScript monorepo management",
   "keywords": [
     "typescript",
     "monorepo",
     "build",
-    "cli",
-    "pnpm",
-    "biome",
-    "vitest"
+    "library"
   ],
-  "bin": {
-    "proman": "./dist/cli.js"
+  "exports": {
+    ".": "./dist/index.js",
+    "./commands": "./dist/commands/index.js",
+    "./utils": "./dist/utils/index.js",
+    "./config": "./dist/config/index.js"
   },
   "scripts": {
-    "test": "pnpm -r --workspace-concurrency=1 test",
-    "lint": "biome check .",
-    "build": "pnpm -r --workspace-concurrency=1 build",
-    "prepare": "git config core.hooksPath .githooks"
+    "test": "vitest run --passWithNoTests",
+    "build": "tsc --project tsconfig.build.json"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
-    "esbuild": "^0.28.0"
+    "typescript": "^5.0.0",
+    "vitest": "^4.0.0"
   },
   "dependencies": {
     "yaml": "^2.9.0"

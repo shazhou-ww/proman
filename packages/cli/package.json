@@ -2,7 +2,7 @@
   "name": "@shazhou/proman",
   "version": "0.8.0",
   "type": "module",
-  "description": "Project manager CLI for TypeScript monorepos",
+  "description": "CLI for managing TypeScript monorepos",
   "keywords": [
     "typescript",
     "monorepo",
@@ -16,17 +16,17 @@
     "proman": "./dist/cli.js"
   },
   "scripts": {
-    "test": "pnpm -r --workspace-concurrency=1 test",
-    "lint": "biome check .",
-    "build": "pnpm -r --workspace-concurrency=1 build",
-    "prepare": "git config core.hooksPath .githooks"
+    "test": "vitest run --passWithNoTests",
+    "build": "esbuild src/cli.ts --bundle --platform=node --format=esm --outfile=dist/cli.js --external:@shazhou/proman-core --external:@biomejs/biome --external:typescript --external:yaml --external:wrangler --external:vite"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
-    "esbuild": "^0.28.0"
+    "esbuild": "^0.28.0",
+    "typescript": "^5.0.0",
+    "vitest": "^4.0.0"
   },
   "dependencies": {
-    "yaml": "^2.9.0"
+    "@shazhou/proman-core": "workspace:*"
   },
   "peerDependencies": {
     "@biomejs/biome": "^2.0.0",

@@ -1,5 +1,9 @@
 minimumReleaseAge: 0
 
+packages:
+  - 'packages/*'
+  - 'tests/fixtures/*'
+
 allowBuilds:
   esbuild: true
   sharp: true

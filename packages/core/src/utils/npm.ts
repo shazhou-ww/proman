@@ -1,0 +1,110 @@
+export type NpmRegistryFetch = (pkg: string) => Promise<string[]>
+
+export type PublishOptions = {
+  tag: string
+  access?: 'public' | 'restricted'
+}
+
+export type NpmRunner = {
+  install: () => Promise<void>
+  build: () => Promise<void>
+  test: () => Promise<void>
+  check: () => Promise<void>
+  format: () => Promise<void>
+  publish: (pkgDir: string, opts: PublishOptions) => Promise<void>
+}
+
+export type NextRcOptions = {
+  baseVersion: string
+  existing: string[]
+}
+
+const RELEASE_BRANCH_RE = /^release\/(.+)$/
+
+export function parseReleaseBranch(branch: string): string {
+  const m = branch.match(RELEASE_BRANCH_RE)
+  if (!m) throw new Error(`not a release branch: '${branch}'`)
+  const v = (m[1] as string).trim()
+  if (!v) throw new Error(`malformed release branch: '${branch}'`)
+  return v
+}
+
+export function nextRcNumber(opts: NextRcOptions): number {
+  const { baseVersion, existing } = opts
+  const prefix = `${baseVersion}-rc.`
+  let max = 0
+  for (const v of existing) {
+    if (!v.startsWith(prefix)) continue
+    const tail = v.slice(prefix.length)
+    const n = Number.parseInt(tail, 10)
+    if (Number.isFinite(n) && n > max) max = n
+  }
+  return max + 1
+}
+
+export function formatRcVersion(baseVersion: string, n: number): string {
+  return `${baseVersion}-rc.${n}`
+}
+
+export const defaultRegistryFetch: NpmRegistryFetch = async (pkg) => {
+  const res = await fetch(`https://registry.npmjs.org/${pkg}`)
+  if (!res.ok) {
+    if (res.status === 404) return []
+    throw new Error(`registry fetch failed for ${pkg}: ${res.status} ${res.statusText}`)
+  }
+  const json = (await res.json()) as { versions?: Record<string, unknown> }
+  return Object.keys(json.versions ?? {})
+}
+
+export type SpawnFn = (
+  argv: string[],
+  cwd: string,
+) => Promise<{ code: number; stdout: string; stderr: string }>
+
+export const defaultSpawn: SpawnFn = async (argv, cwd) => {
+  const { spawnSync } = await import('node:child_process')
+  const result = spawnSync(argv[0] as string, argv.slice(1), {
+    cwd,
+    stdio: 'pipe',
+  })
+  const stdout = result.stdout?.toString() ?? ''
+  const stderr = result.stderr?.toString() ?? ''
+  // Forward captured output to terminal so users still see progress
+  if (stdout) process.stdout.write(stdout)
+  if (stderr) process.stderr.write(stderr)
+  return {
+    code: result.status ?? 1,
+    stdout,
+    stderr,
+  }
+}
+
+export async function runOrThrow(spawn: SpawnFn, argv: string[], cwd: string): Promise<void> {
+  const { code, stdout, stderr } = await spawn(argv, cwd)
+  if (code !== 0) {
+    const detail = stderr.trim() || stdout.trim()
+    throw new Error(detail ? `${argv.join(' ')} failed: ${detail}` : `${argv.join(' ')} failed`)
+  }
+}
+
+export function createNpmRunner(cwd: string, spawn: SpawnFn = defaultSpawn): NpmRunner {
+  const runScript = (script: string) => async () => {
+    await runOrThrow(spawn, ['pnpm', 'run', script], cwd)
+  }
+  return {
+    install: async () => {
+      await runOrThrow(spawn, ['pnpm', 'install'], cwd)
+    },
+    build: runScript('build'),
+    test: async () => {
+      await runOrThrow(spawn, ['pnpm', 'exec', 'vitest', 'run'], cwd)
+    },
+    check: runScript('check'),
+    format: runScript('format'),
+    publish: async (pkgDir, opts) => {
+      const args = ['pnpm', 'publish', '--tag', opts.tag, '--no-git-checks']
+      if (opts.access) args.push('--access', opts.access)
+      await runOrThrow(spawn, args, pkgDir)
+    },
+  }
+}

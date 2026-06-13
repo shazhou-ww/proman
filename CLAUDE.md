@@ -6,7 +6,12 @@
 
 ## Structure
 
-Single package. Source in `src/`, esbuild bundles to `dist/cli.js`.
+Monorepo with two packages:
+- `packages/core/` — @shazhou/proman-core (library)
+- `packages/cli/` — @shazhou/proman (CLI)
+
+Core contains config loader, utils, and command logic as pure functions.
+CLI parses args and delegates to core functions.
 
 ## Commands
 
@@ -15,23 +20,26 @@ Single package. Source in `src/`, esbuild bundles to `dist/cli.js`.
 ## Tech
 
 - **TypeScript** — strict mode
-- **esbuild** — bundles `src/cli.ts` → `dist/cli.js`
+- **Core:** TypeScript compilation (`tsc`)
+- **CLI:** esbuild bundles `packages/cli/src/cli.ts` → `packages/cli/dist/cli.js`
 - **vitest** — tests
 
 ## Dependencies
 
-- **Runtime:** `yaml` (only runtime dependency)
-- **Peer (externals in esbuild):** `@biomejs/biome`, `typescript`, `vitest`, `vite`, `wrangler`
+- **Core runtime:** `yaml` (only runtime dependency)
+- **Core peer:** `@biomejs/biome`, `typescript`, `vitest`, `vite`, `wrangler`
+- **CLI runtime:** `@shazhou/proman-core` (workspace dependency)
+- **CLI peer:** same as core
 
 ## Config
 
-`proman.yaml` in project root. See `src/config/types.ts` for schema.
+`proman.yaml` at repo root. See `packages/core/src/config/types.ts` for schema.
 
 ## Development
 
 ```bash
-pnpm build    # esbuild bundle
-pnpm test     # vitest
+pnpm build    # builds core then cli
+pnpm test     # runs tests in both packages
 ```
 
 ## Conventions
