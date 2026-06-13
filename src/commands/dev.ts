@@ -1,4 +1,4 @@
-import { chmodSync, existsSync, readFileSync, rmSync } from 'node:fs'
+import { chmodSync, existsSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { loadConfig } from '../config/index.ts'
 import {
@@ -157,9 +157,11 @@ export async function check(opts: DevCommandOptions): Promise<void> {
     }
 
     await runOrThrow(spawn, pnpmExec('biome', 'check', '.'), cwd)
+    await validateWorkflows(spawn, cwd)
     writeFingerprint(fpPath, fpValue)
   } else {
     await runOrThrow(spawn, pnpmExec('biome', 'check', '.'), cwd)
+    await validateWorkflows(spawn, cwd)
   }
 }
 
@@ -167,4 +169,42 @@ export async function format(opts: DevCommandOptions): Promise<void> {
   const spawn = opts.spawn ?? defaultSpawn
   const cwd = resolve(opts.cwd)
   await runOrThrow(spawn, pnpmExec('biome', 'format', '--write', '.'), cwd)
+}
+
+/** Discover .workflows/*.yaml and validate each with `uwf workflow validate`. Skips if uwf is not installed. */
+async function validateWorkflows(spawn: SpawnFn, cwd: string): Promise<void> {
+  const dirs = [join(cwd, '.workflows'), join(cwd, '.workflow')]
+  const files: string[] = []
+
+  for (const dir of dirs) {
+    if (!existsSync(dir)) continue
+    for (const entry of readdirSync(dir)) {
+      if (entry.endsWith('.yaml') || entry.endsWith('.yml')) {
+        files.push(join(dir, entry))
+      }
+    }
+  }
+
+  if (files.length === 0) return
+
+  // Check if uwf is available
+  const { code: uwfCheck } = await spawn(['which', 'uwf'], cwd)
+  if (uwfCheck !== 0) {
+    console.log('⚠ uwf not installed, skipping workflow validation')
+    return
+  }
+
+  const errors: string[] = []
+  for (const file of files) {
+    const { code, stderr } = await spawn(['uwf', 'workflow', 'validate', file], cwd)
+    if (code !== 0) {
+      errors.push(`${file}: ${stderr.trim() || 'validation failed'}`)
+    }
+  }
+
+  if (errors.length > 0) {
+    throw new Error(`Workflow validation failed:\n${errors.join('\n')}`)
+  }
+
+  console.log(`✓ ${files.length} workflow(s) validated`)
 }
