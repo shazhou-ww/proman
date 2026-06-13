@@ -1,4 +1,4 @@
-import { readFile, rm } from 'node:fs/promises'
+import { mkdir, readFile, rm, symlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { SpawnFn } from './npm.js'
@@ -7,13 +7,29 @@ type PackageJson = {
   name: string
   version: string
   bin?: string | Record<string, string>
+  dependencies?: Record<string, string>
 }
+
+/**
+ * Map of workspace package names → absolute paths on disk.
+ * Used to symlink workspace dependencies into the smoke test directory
+ * so bin commands can resolve them without npm install.
+ */
+export type WorkspacePackages = Record<string, string>
 
 /**
  * Smoke test a package tarball by extracting it and running bin commands.
  * Validates that the packaged artifact actually works before publishing.
+ *
+ * @param workspacePackages - Map of workspace package names to their absolute
+ *   paths. When provided, workspace dependencies are symlinked into the
+ *   extracted tarball's node_modules so bin commands can resolve them.
  */
-export async function smokeTestTarball(pkgDir: string, spawn: SpawnFn): Promise<void> {
+export async function smokeTestTarball(
+  pkgDir: string,
+  spawn: SpawnFn,
+  workspacePackages?: WorkspacePackages,
+): Promise<void> {
   // Read package.json to check for bin entries
   const pkgJsonPath = join(pkgDir, 'package.json')
   const pkgJsonText = await readFile(pkgJsonPath, 'utf8')
@@ -62,7 +78,26 @@ export async function smokeTestTarball(pkgDir: string, spawn: SpawnFn): Promise<
     // pnpm pack creates a 'package/' directory inside the tarball
     const extractedPkgDir = join(testDir, 'package')
 
-    // Step 3: Test each bin entry
+    // Step 3: Symlink workspace dependencies into node_modules
+    if (workspacePackages) {
+      const deps = pkgJson.dependencies ?? {}
+      const nodeModulesDir = join(extractedPkgDir, 'node_modules')
+
+      for (const [depName, depPath] of Object.entries(workspacePackages)) {
+        if (depName in deps) {
+          // Handle scoped packages: @scope/name → node_modules/@scope/name
+          const segments = depName.split('/')
+          if (segments.length === 2) {
+            await mkdir(join(nodeModulesDir, segments[0] as string), { recursive: true })
+          } else {
+            await mkdir(nodeModulesDir, { recursive: true })
+          }
+          await symlink(depPath, join(nodeModulesDir, depName), 'dir')
+        }
+      }
+    }
+
+    // Step 4: Test each bin entry
     for (const [binName, binPath] of Object.entries(binEntries)) {
       const binFullPath = join(extractedPkgDir, binPath)
       const binTestResult = await spawn(['node', binFullPath, '--version'], extractedPkgDir)
@@ -75,7 +110,7 @@ export async function smokeTestTarball(pkgDir: string, spawn: SpawnFn): Promise<
       }
     }
   } finally {
-    // Step 4: Always clean up temp directory and tarball
+    // Step 5: Always clean up temp directory and tarball
     await rm(testDir, { recursive: true, force: true })
     await rm(join(pkgDir, tarballName), { force: true })
   }
