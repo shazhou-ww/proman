@@ -1,5 +1,6 @@
 {
-  "name": "@shazhou/proman",
+  "name": "@shazhou/proman-workspace",
+  "private": true,
   "version": "0.8.0",
   "type": "module",
   "description": "Project manager CLI for TypeScript monorepos",
@@ -12,9 +13,6 @@
     "biome",
     "vitest"
   ],
-  "bin": {
-    "proman": "./dist/cli.js"
-  },
   "scripts": {
     "test": "pnpm -r --workspace-concurrency=1 test",
     "lint": "biome check .",
