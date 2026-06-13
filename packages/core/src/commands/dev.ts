@@ -74,10 +74,18 @@ export async function build(opts: DevCommandOptions): Promise<void> {
       case 'webui':
         argv = pnpmExec('vite', 'build')
         break
-      case 'cli':
-        // cli → use package's own build script (may be esbuild, tsc, etc.)
-        argv = ['pnpm', 'run', 'build']
+      case 'cli': {
+        // cli → prefer package's own build script if it exists,
+        // otherwise fall back to tsc --build (same as lib/api)
+        const pkgJsonPath = join(pkgDir, 'package.json')
+        let hasBuildScript = false
+        if (existsSync(pkgJsonPath)) {
+          const pkgJson = JSON.parse(readFileSync(pkgJsonPath, 'utf-8'))
+          hasBuildScript = pkgJson.scripts?.build != null
+        }
+        argv = hasBuildScript ? ['pnpm', 'run', 'build'] : pnpmExec('tsc', '--build')
         break
+      }
       default:
         // lib | api → tsc --build
         argv = pnpmExec('tsc', '--build')
