@@ -3,17 +3,17 @@ import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
-  bump,
-  deploy,
   build,
+  bump,
   check,
+  deploy,
   format,
-  runTests,
   init,
   link,
   linkStatus,
-  unlink,
   publish,
+  runTests,
+  unlink,
 } from '@shazhou/proman-core'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
