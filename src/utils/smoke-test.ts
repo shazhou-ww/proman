@@ -33,15 +33,15 @@ export async function smokeTestTarball(pkgDir: string, spawn: SpawnFn): Promise<
     return
   }
 
-  // Step 1: Create tarball with npm pack
+  // Step 1: Create tarball with pnpm pack
   const packResult = await spawn(['pnpm', 'pack'], pkgDir)
   if (packResult.code !== 0) {
-    throw new Error(`npm pack failed: ${packResult.stderr || packResult.stdout}`)
+    throw new Error(`pnpm pack failed: ${packResult.stderr || packResult.stdout}`)
   }
 
   const tarballName = packResult.stdout.trim()
   if (!tarballName) {
-    throw new Error('npm pack did not return tarball filename')
+    throw new Error('pnpm pack did not return tarball filename')
   }
 
   // Step 2: Extract tarball to temp directory
