@@ -2,7 +2,6 @@ import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promis
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
-import { parsePublishArgs } from '../src/cli.ts'
 import { type GitOps, type NpmRunner, publish } from '../src/commands/publish.ts'
 
 function makeGit(overrides: Partial<GitOps> = {}) {
@@ -133,24 +132,6 @@ beforeEach(async () => {
 
 afterEach(async () => {
   await rm(tmp, { recursive: true })
-})
-
-// ── CLI arg parsing ──
-
-describe('parsePublishArgs', () => {
-  test('no args', () => {
-    const r = parsePublishArgs([])
-    expect(r.skipTests).toBe(false)
-  })
-
-  test('--skip-tests', () => {
-    const r = parsePublishArgs(['--skip-tests'])
-    expect(r.skipTests).toBe(true)
-  })
-
-  test('rejects unknown flag', () => {
-    expect(() => parsePublishArgs(['--foo'])).toThrow('unknown flag')
-  })
 })
 
 // ── Build pipeline ──

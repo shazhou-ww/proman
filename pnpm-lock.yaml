@@ -23,9 +23,6 @@ importers:
       wrangler:
         specifier: ^3.0.0
         version: 3.114.17
-      yaml:
-        specifier: ^2.9.0
-        version: 2.9.0
     devDependencies:
       '@types/node':
         specifier: ^22.0.0

@@ -4,7 +4,7 @@ import { describe, expect, test } from 'vitest'
 import { parse as parseYAML } from 'yaml'
 
 describe('Issue #154: already_approved variant in review-pr.yaml', () => {
-  const reviewPrPath = resolve(__dirname, '../.workflows/review-pr.yaml')
+  const reviewPrPath = resolve(__dirname, '../../../.workflows/review-pr.yaml')
 
   test('T154.1: already_approved variant does NOT include selfReview (synced with uwf)', () => {
     const yaml = readFileSync(reviewPrPath, 'utf8')
@@ -35,7 +35,7 @@ describe('Issue #154: already_approved variant in review-pr.yaml', () => {
 })
 
 describe('Issue #156: Token retrieval in triage-issues.yaml', () => {
-  const triageIssuesPath = resolve(__dirname, '../.workflows/triage-issues.yaml')
+  const triageIssuesPath = resolve(__dirname, '../../../.workflows/triage-issues.yaml')
 
   test('T156.1: output section documents cfg get GITEA_TOKEN', () => {
     const yaml = readFileSync(triageIssuesPath, 'utf8')
@@ -60,8 +60,8 @@ describe('Issue #156: Token retrieval in triage-issues.yaml', () => {
 
 describe('Integration tests', () => {
   test('T157.1: both workflow files parse as valid YAML', () => {
-    const reviewPrPath = resolve(__dirname, '../.workflows/review-pr.yaml')
-    const triageIssuesPath = resolve(__dirname, '../.workflows/triage-issues.yaml')
+    const reviewPrPath = resolve(__dirname, '../../../.workflows/review-pr.yaml')
+    const triageIssuesPath = resolve(__dirname, '../../../.workflows/triage-issues.yaml')
 
     const reviewPr = readFileSync(reviewPrPath, 'utf8')
     const triageIssues = readFileSync(triageIssuesPath, 'utf8')

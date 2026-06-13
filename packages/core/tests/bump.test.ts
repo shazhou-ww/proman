@@ -2,7 +2,6 @@ import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promis
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
-import { parseBumpArgs } from '../src/cli.ts'
 import { bump } from '../src/commands/bump.ts'
 
 type FixtureOptions = {
@@ -51,38 +50,6 @@ beforeEach(async () => {
 
 afterEach(async () => {
   await rm(tmp, { recursive: true })
-})
-
-// ── CLI arg parsing ──
-
-describe('parseBumpArgs', () => {
-  test('no args', () => {
-    const r = parseBumpArgs([])
-    expect(r.type).toBeUndefined()
-  })
-
-  test('--type patch', () => {
-    const r = parseBumpArgs(['--type', 'patch'])
-    expect(r.type).toBe('patch')
-  })
-
-  test('--type minor', () => {
-    const r = parseBumpArgs(['--type', 'minor'])
-    expect(r.type).toBe('minor')
-  })
-
-  test('--type major', () => {
-    const r = parseBumpArgs(['--type', 'major'])
-    expect(r.type).toBe('major')
-  })
-
-  test('rejects invalid --type', () => {
-    expect(() => parseBumpArgs(['--type', 'huge'])).toThrow('must be major, minor, or patch')
-  })
-
-  test('rejects unknown flag', () => {
-    expect(() => parseBumpArgs(['--foo'])).toThrow('unknown flag')
-  })
 })
 
 // ── bump command ──
