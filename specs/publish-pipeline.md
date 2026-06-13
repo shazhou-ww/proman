@@ -11,7 +11,8 @@ tags: [release, npm, git]
 - `proman publish` runs
 
 ## Then
-- Pipeline executes in order: install → build → test → check → npm publish → git commit → git tag → git push
+- Pipeline executes in order: install → build → test → check → smoke test tarball → npm publish → git commit → git tag → git push
+- Before npm publish, packages with bin entries are smoke tested by extracting the tarball and running `<bin> --version`
 - Each package is published with `pnpm publish --no-git-checks`
 - Versions matching `-rc.\d+` are published with `--tag rc` instead of `--tag latest`
 - Git tags follow `@scope/name@vX.Y.Z` format

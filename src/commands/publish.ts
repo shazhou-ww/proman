@@ -5,9 +5,12 @@ import { createGitOps, type GitOps } from '../utils/git.ts'
 import {
   createNpmRunner,
   defaultRegistryFetch,
+  defaultSpawn,
   type NpmRegistryFetch,
   type NpmRunner,
+  type SpawnFn,
 } from '../utils/npm.ts'
+import { smokeTestTarball } from '../utils/smoke-test.ts'
 
 export type { GitOps } from '../utils/git.ts'
 export type { NpmRunner } from '../utils/npm.ts'
@@ -18,6 +21,7 @@ export type PublishOptions = {
   git?: GitOps
   npm?: NpmRunner
   registryFetch?: NpmRegistryFetch
+  spawn?: SpawnFn
 }
 
 const AUTHOR = '小橘 <xiaoju@shazhou.work>'
@@ -40,13 +44,14 @@ function isAlreadyPublished(message: string): boolean {
 
 /**
  * Publish all packages. Reads each package's version from its own package.json.
- * build → test → check → publish → commit → tag → push
+ * build → test → check → smoke test tarball → publish → commit → tag → push
  */
 export async function publish(opts: PublishOptions = {}): Promise<void> {
   const { skipTests = false } = opts
   const cwd = opts.cwd ?? process.cwd()
   const git = opts.git ?? createGitOps(cwd)
   const fetchVersions = opts.registryFetch ?? defaultRegistryFetch
+  const spawn = opts.spawn ?? defaultSpawn
 
   const cfg = loadConfig(cwd)
   const npm = opts.npm ?? createNpmRunner(cwd)
@@ -104,6 +109,20 @@ export async function publish(opts: PublishOptions = {}): Promise<void> {
     if (existingVersions.includes(version)) {
       console.log(`⏭ skipped ${entry.name}@${version} (already published)`)
       continue
+    }
+
+    // Smoke test: validate tarball before publishing
+    try {
+      await smokeTestTarball(pkgDir, spawn)
+    } catch (err) {
+      const message = (err as Error).message
+      const published = publishablePackages.slice(0, i).map((p) => p.name)
+      const remaining = publishablePackages.slice(i + 1).map((p) => p.name)
+      const msg =
+        `smoke test failed for ${entry.name}: ${message}\n` +
+        `  published: ${published.join(', ') || '(none)'}\n` +
+        `  unpublished: ${[entry.name, ...remaining].join(', ')}`
+      throw new Error(msg)
     }
 
     try {

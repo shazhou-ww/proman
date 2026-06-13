@@ -33,7 +33,7 @@ This scaffolds a ready-to-use monorepo with two example packages (core library +
 | `proman link [package]` | Link local package for development (see Link section) |
 | `proman unlink [package]` | Unlink and restore packages from registry |
 | `proman bump` | Bump package versions (from changesets or --type), generate CHANGELOG.md, delete consumed changesets |
-| `proman publish` | Full release pipeline: build → test → check → publish → tag → push |
+| `proman publish` | Full release pipeline: build → test → check → smoke test tarball → publish → tag → push |
 | `proman deploy` | Deploy webui/api packages (wrangler) |
 
 ### Deploy
