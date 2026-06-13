@@ -1,6 +1,6 @@
 # @shazhou/proman
 
-Project manager CLI for TypeScript monorepos — build, test, lint, format, publish.
+Project manager CLI for TypeScript monorepos — build, test, check, format, publish.
 
 Proman is itself a monorepo consisting of:
 - `@shazhou/proman-core` — Core library with config loader, utils, and command logic

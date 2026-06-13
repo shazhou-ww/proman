@@ -2,13 +2,13 @@
 
 ## Overview
 
-proman is the standard development toolchain for Shazhou team pnpm monorepos. It wraps the full lifecycle — building, testing, linting, version bumping, publishing to npm, and deploying to Cloudflare — into a single CLI driven by a `proman.yaml` config file.
+proman is the standard development toolchain for Shazhou team pnpm monorepos. It wraps the full lifecycle — building, testing, checking, version bumping, publishing to npm, and deploying to Cloudflare — into a single CLI driven by a `proman.yaml` config file.
 
 **Install:** `pnpm add -g @shazhou/proman`
 
 ## When to Use
 
-- Building, testing, or linting a Shazhou monorepo
+- Building, testing, or checking a Shazhou monorepo
 - Bumping versions (changeset-based or manual)
 - Publishing packages to npm with changelog generation
 - Deploying webui/api packages via wrangler
@@ -73,7 +73,7 @@ release:
 ```bash
 proman build              # build each package by its type
 proman test               # run vitest
-proman check              # lint with biome
+proman check              # check with biome
 proman format             # format with biome
 ```
 
