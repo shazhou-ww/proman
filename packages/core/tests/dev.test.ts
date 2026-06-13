@@ -67,8 +67,8 @@ describe('build command', () => {
     // lib: tsc --build
     expectExec(calls[0]?.argv, 'tsc', ['--build'])
     expect(calls[0]?.cwd).toBe(resolve(FIX('typed'), 'packages/core'))
-    // cli: tsc --build
-    expectExec(calls[1]?.argv, 'tsc', ['--build'])
+    // cli: pnpm run build
+    expect(calls[1]?.argv).toEqual(['pnpm', 'run', 'build'])
     expect(calls[1]?.cwd).toBe(resolve(FIX('typed'), 'packages/mycli'))
     // webui: vite build
     expectExec(calls[2]?.argv, 'vite', ['build'])
