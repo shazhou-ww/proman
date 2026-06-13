@@ -56,7 +56,7 @@ export async function smokeTestTarball(pkgDir: string, spawn: SpawnFn): Promise<
       throw new Error(`tar extract failed: ${extractResult.stderr}`)
     }
 
-    // npm pack creates a 'package/' directory inside the tarball
+    // pnpm pack creates a 'package/' directory inside the tarball
     const extractedPkgDir = join(testDir, 'package')
 
     // Step 3: Test each bin entry

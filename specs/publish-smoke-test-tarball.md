@@ -12,7 +12,7 @@ tags: [npm, smoke-test, tarball, validation]
 - `proman publish` runs for this package
 
 ## Then
-- Before `npm publish`, proman runs `npm pack` to create the tarball
+- Before `pnpm publish`, proman runs `pnpm pack` to create the tarball
 - The tarball is extracted to a temporary directory
 - For each `bin` entry, proman executes `node <bin-path> --version` in the extracted directory
 - If the bin command exits with code 0, the smoke test passes
