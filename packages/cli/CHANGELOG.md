@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.1 — 2026-06-13
+
+- Fix workspace:* dependency not resolved during npm publish
+  
+  v0.9.0 was published with `npm publish` which does not resolve pnpm workspace
+  protocol. Re-publish with `proman publish` (uses `pnpm publish`) to correctly
+  resolve `workspace:*` to the actual version number.
+
 ## 0.9.0 — 2026-06-13
 
 - Fix npm/pnpm inconsistencies in smoke test comments and error messages
