@@ -478,3 +478,141 @@ describe('git operations', () => {
     expect(tags[1]).toContain('@test/cli@v')
   })
 })
+
+// ── Smoke test tarball ──
+
+describe('smoke test tarball', () => {
+  test('runs smoke test before npm publish for packages with bin entry', async () => {
+    // Create package with bin entry
+    await setupFixture(tmp)
+    const pkgDir = join(tmp, 'packages/core')
+    const pkgJsonPath = join(pkgDir, 'package.json')
+    const pkgJson = await readFile(pkgJsonPath, 'utf8')
+    const parsed = JSON.parse(pkgJson) as Record<string, unknown>
+    parsed.bin = { testcli: './dist/cli.js' }
+    await writeFile(pkgJsonPath, JSON.stringify(parsed, null, 2))
+
+    const { git } = makeGit()
+    const spawnCalls: string[] = []
+    const { npm } = makeNpm({
+      publish: async (dir) => {
+        spawnCalls.push(`publish ${dir}`)
+      },
+    })
+
+    const mockSpawn = async (argv: string[], _cwd: string) => {
+      const cmd = argv.join(' ')
+      spawnCalls.push(cmd)
+      if (cmd.includes('pack')) {
+        return { code: 0, stdout: 'test-0.3.0.tgz\n', stderr: '' }
+      }
+      if (cmd.includes('--version')) {
+        return { code: 0, stdout: '0.3.0\n', stderr: '' }
+      }
+      if (cmd.startsWith('tar ')) {
+        return { code: 0, stdout: '', stderr: '' }
+      }
+      return { code: 0, stdout: '', stderr: '' }
+    }
+
+    await publish({ cwd: tmp, git, npm, spawn: mockSpawn })
+
+    // Verify npm pack and bin test ran before publish
+    const packIdx = spawnCalls.findIndex((c) => c.includes('pack'))
+    const publishIdx = spawnCalls.findIndex((c) => c.startsWith('publish'))
+    expect(packIdx).toBeGreaterThan(-1)
+    expect(publishIdx).toBeGreaterThan(-1)
+    expect(packIdx).toBeLessThan(publishIdx)
+  })
+
+  test('aborts publish when smoke test fails', async () => {
+    await setupFixture(tmp)
+    const pkgDir = join(tmp, 'packages/core')
+    const pkgJsonPath = join(pkgDir, 'package.json')
+    const pkgJson = await readFile(pkgJsonPath, 'utf8')
+    const parsed = JSON.parse(pkgJson) as Record<string, unknown>
+    parsed.bin = { broken: './dist/cli.js' }
+    await writeFile(pkgJsonPath, JSON.stringify(parsed, null, 2))
+
+    const { git } = makeGit()
+    const published: string[] = []
+    const { npm } = makeNpm({
+      publish: async (dir) => {
+        published.push(dir)
+      },
+    })
+
+    const mockSpawn = async (argv: string[]) => {
+      if (argv.includes('pack')) {
+        return { code: 0, stdout: 'test-0.3.0.tgz\n', stderr: '' }
+      }
+      if (argv.includes('--version')) {
+        // Simulate broken bin
+        return { code: 1, stdout: '', stderr: 'Error: Cannot find module' }
+      }
+      if (argv[0] === 'tar') {
+        return { code: 0, stdout: '', stderr: '' }
+      }
+      return { code: 0, stdout: '', stderr: '' }
+    }
+
+    await expect(publish({ cwd: tmp, git, npm, spawn: mockSpawn })).rejects.toThrow(
+      'smoke test failed',
+    )
+
+    // Verify npm publish was never called
+    expect(published.length).toBe(0)
+  })
+
+  test('skips smoke test for packages without bin entry', async () => {
+    // Package without bin entry (pure library)
+    await setupFixture(tmp)
+
+    const { git } = makeGit()
+    const { npm } = makeNpm()
+    const spawnCalls: string[] = []
+    const mockSpawn = async (argv: string[]) => {
+      spawnCalls.push(argv.join(' '))
+      return { code: 0, stdout: '', stderr: '' }
+    }
+
+    await publish({ cwd: tmp, git, npm, spawn: mockSpawn })
+
+    // Should not call npm pack or tar (no smoke test needed)
+    expect(spawnCalls.some((c) => c.includes('pack'))).toBe(false)
+    expect(spawnCalls.some((c) => c.includes('tar'))).toBe(false)
+  })
+
+  test('smoke test does not prevent git operations on success', async () => {
+    await setupFixture(tmp)
+    const pkgDir = join(tmp, 'packages/core')
+    const pkgJsonPath = join(pkgDir, 'package.json')
+    const pkgJson = await readFile(pkgJsonPath, 'utf8')
+    const parsed = JSON.parse(pkgJson) as Record<string, unknown>
+    parsed.bin = { testcli: './dist/cli.js' }
+    await writeFile(pkgJsonPath, JSON.stringify(parsed, null, 2))
+
+    const { git, calls } = makeGit()
+    const { npm } = makeNpm()
+
+    const mockSpawn = async (argv: string[]) => {
+      if (argv.includes('pack')) {
+        return { code: 0, stdout: 'test-0.3.0.tgz\n', stderr: '' }
+      }
+      if (argv.includes('--version')) {
+        return { code: 0, stdout: '0.3.0\n', stderr: '' }
+      }
+      if (argv[0] === 'tar') {
+        return { code: 0, stdout: '', stderr: '' }
+      }
+      return { code: 0, stdout: '', stderr: '' }
+    }
+
+    await publish({ cwd: tmp, git, npm, spawn: mockSpawn })
+
+    // Git operations should still happen
+    expect(calls).toContain('add')
+    expect(calls).toContain('commit release: v0.3.0')
+    expect(calls).toContain('pushTags')
+  })
+})
