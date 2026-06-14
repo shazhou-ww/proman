@@ -1,11 +1,12 @@
 ---
-scenario: "Smoke test tarball before npm publish"
+scenario: "Smoke test tarball before npm publish (fallback when no smoke script)"
 feature: publish
-tags: [npm, smoke-test, tarball, validation]
+tags: [npm, smoke-test, tarball, validation, fallback]
 ---
 
 ## Given
 - A package has a `bin` entry in package.json (e.g. `"bin": {"proman": "./dist/cli.js"}`)
+- The package has NO `"smoke"` script in its package.json `scripts` field
 - The package has been built and is ready for publishing
 
 ## When
