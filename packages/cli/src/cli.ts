@@ -27,7 +27,9 @@ const HELP_TEXT = `Usage: proman <command> [options]
 Commands:
   init [dir]            Scaffold a new monorepo (default: current directory)
   bump                  Bump package versions (from changesets or --type)
-  publish               Build, test, publish, changelog, tag, push [--skip-tests]
+  publish               Build, test, publish, changelog, tag, push
+                          --skip-tests  Skip test step
+                          --skip-smoke  Skip smoke test step
   build                 Build each package by type (tsc/vite)
   deploy                Deploy webui/api packages (wrangler)
                           --package <name>  Deploy a single package
@@ -73,16 +75,20 @@ export function parseBumpArgs(argv: string[]): {
 
 export function parsePublishArgs(argv: string[]): {
   skipTests: boolean
+  skipSmoke: boolean
 } {
   let skipTests = false
+  let skipSmoke = false
   for (const a of argv) {
     if (a === '--skip-tests') {
       skipTests = true
+    } else if (a === '--skip-smoke') {
+      skipSmoke = true
     } else {
       throw new Error(`unknown flag: ${a}`)
     }
   }
-  return { skipTests }
+  return { skipTests, skipSmoke }
 }
 
 export function parseDeployArgs(argv: string[]): { pkg?: string; env?: string } {
@@ -162,8 +168,8 @@ async function main(argv: string[]): Promise<void> {
     return
   }
   if (cmd === 'publish') {
-    const { skipTests } = parsePublishArgs(argv.slice(1))
-    await publish({ skipTests })
+    const { skipTests, skipSmoke } = parsePublishArgs(argv.slice(1))
+    await publish({ skipTests, skipSmoke })
     return
   }
   if (cmd === 'build') {

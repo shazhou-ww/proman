@@ -10,13 +10,14 @@ import {
   type NpmRunner,
   type SpawnFn,
 } from '../utils/npm.js'
-import { smokeTestTarball } from '../utils/smoke-test.js'
+import { smokeTest } from '../utils/smoke-test.js'
 
 export type { GitOps } from '../utils/git.js'
 export type { NpmRunner } from '../utils/npm.js'
 
 export type PublishOptions = {
   skipTests?: boolean
+  skipSmoke?: boolean
   cwd?: string
   git?: GitOps
   npm?: NpmRunner
@@ -47,7 +48,7 @@ function isAlreadyPublished(message: string): boolean {
  * build → test → check → smoke test tarball → publish → commit → tag → push
  */
 export async function publish(opts: PublishOptions = {}): Promise<void> {
-  const { skipTests = false } = opts
+  const { skipTests = false, skipSmoke = false } = opts
   const cwd = opts.cwd ?? process.cwd()
   const git = opts.git ?? createGitOps(cwd)
   const fetchVersions = opts.registryFetch ?? defaultRegistryFetch
@@ -111,23 +112,25 @@ export async function publish(opts: PublishOptions = {}): Promise<void> {
       continue
     }
 
-    // Smoke test: validate tarball before publishing
-    try {
-      // Build workspace package map for symlink resolution
-      const workspacePackages: Record<string, string> = {}
-      for (const pkg of cfg.packages) {
-        workspacePackages[pkg.name] = resolve(cwd, pkg.path)
+    // Smoke test: validate package before publishing
+    if (!skipSmoke) {
+      try {
+        // Build workspace package map for symlink resolution
+        const workspacePackages: Record<string, string> = {}
+        for (const pkg of cfg.packages) {
+          workspacePackages[pkg.name] = resolve(cwd, pkg.path)
+        }
+        await smokeTest(pkgDir, spawn, workspacePackages)
+      } catch (err) {
+        const message = (err as Error).message
+        const published = publishablePackages.slice(0, i).map((p) => p.name)
+        const remaining = publishablePackages.slice(i + 1).map((p) => p.name)
+        const msg =
+          `smoke test failed for ${entry.name}: ${message}\n` +
+          `  published: ${published.join(', ') || '(none)'}\n` +
+          `  unpublished: ${[entry.name, ...remaining].join(', ')}`
+        throw new Error(msg)
       }
-      await smokeTestTarball(pkgDir, spawn, workspacePackages)
-    } catch (err) {
-      const message = (err as Error).message
-      const published = publishablePackages.slice(0, i).map((p) => p.name)
-      const remaining = publishablePackages.slice(i + 1).map((p) => p.name)
-      const msg =
-        `smoke test failed for ${entry.name}: ${message}\n` +
-        `  published: ${published.join(', ') || '(none)'}\n` +
-        `  unpublished: ${[entry.name, ...remaining].join(', ')}`
-      throw new Error(msg)
     }
 
     try {

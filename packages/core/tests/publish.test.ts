@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { type GitOps, type NpmRunner, publish } from '../src/commands/publish.ts'
+import type { SpawnFn } from '../src/utils/npm.ts'
 
 function makeGit(overrides: Partial<GitOps> = {}) {
   const calls: string[] = []
@@ -595,5 +596,143 @@ describe('smoke test tarball', () => {
     expect(calls).toContain('add')
     expect(calls).toContain('commit release: v0.3.0')
     expect(calls).toContain('pushTags')
+  })
+})
+
+// ── --skip-smoke flag ──
+
+describe('--skip-smoke flag', () => {
+  test('skips smoke test entirely when skipSmoke is true', async () => {
+    await setupFixture(tmp)
+    const pkgDir = join(tmp, 'packages/core')
+    const pkgJsonPath = join(pkgDir, 'package.json')
+    const pkgJson = await readFile(pkgJsonPath, 'utf8')
+    const parsed = JSON.parse(pkgJson) as Record<string, unknown>
+    parsed.bin = { testcli: './dist/cli.js' }
+    parsed.scripts = { smoke: 'vitest run smoke.test.ts' }
+    await writeFile(pkgJsonPath, JSON.stringify(parsed, null, 2))
+
+    const { git } = makeGit()
+    const spawnCalls: string[] = []
+    const { npm } = makeNpm()
+
+    const mockSpawn: SpawnFn = async (argv: string[]) => {
+      spawnCalls.push(argv.join(' '))
+      return { code: 0, stdout: '', stderr: '' }
+    }
+
+    await publish({ cwd: tmp, git, npm, spawn: mockSpawn, skipSmoke: true })
+
+    // No smoke test at all
+    expect(spawnCalls.some((c) => c.includes('pnpm run smoke'))).toBe(false)
+    expect(spawnCalls.some((c) => c.includes('pnpm pack'))).toBe(false)
+    expect(spawnCalls.some((c) => c.includes('--version'))).toBe(false)
+  })
+
+  test('skips smoke even when packages have bin entries', async () => {
+    await setupFixture(tmp)
+    const pkgDir = join(tmp, 'packages/core')
+    const pkgJsonPath = join(pkgDir, 'package.json')
+    const pkgJson = await readFile(pkgJsonPath, 'utf8')
+    const parsed = JSON.parse(pkgJson) as Record<string, unknown>
+    parsed.bin = { testcli: './dist/cli.js' }
+    await writeFile(pkgJsonPath, JSON.stringify(parsed, null, 2))
+
+    const { git } = makeGit()
+    const spawnCalls: string[] = []
+    const { npm } = makeNpm()
+
+    const mockSpawn: SpawnFn = async (argv: string[]) => {
+      spawnCalls.push(argv.join(' '))
+      return { code: 0, stdout: '', stderr: '' }
+    }
+
+    await publish({ cwd: tmp, git, npm, spawn: mockSpawn, skipSmoke: true })
+
+    // No tarball-based smoke test
+    expect(spawnCalls.some((c) => c.includes('pnpm pack'))).toBe(false)
+  })
+
+  test('rest of publish pipeline proceeds normally with --skip-smoke', async () => {
+    await setupFixture(tmp)
+    const pkgDir = join(tmp, 'packages/core')
+    const pkgJsonPath = join(pkgDir, 'package.json')
+    const pkgJson = await readFile(pkgJsonPath, 'utf8')
+    const parsed = JSON.parse(pkgJson) as Record<string, unknown>
+    parsed.bin = { testcli: './dist/cli.js' }
+    await writeFile(pkgJsonPath, JSON.stringify(parsed, null, 2))
+
+    const { git, calls: gitCalls } = makeGit()
+    const { npm, calls: npmCalls } = makeNpm()
+
+    await publish({ cwd: tmp, git, npm, skipSmoke: true })
+
+    // Build pipeline still runs
+    expect(npmCalls).toContain('install')
+    expect(npmCalls).toContain('build')
+    expect(npmCalls).toContain('test')
+    expect(npmCalls).toContain('check')
+    // Publish still happens
+    expect(npmCalls.some((c) => c.startsWith('publish'))).toBe(true)
+    // Git operations still happen
+    expect(gitCalls).toContain('add')
+    expect(gitCalls).toContain('pushTags')
+  })
+})
+
+// ── Smoke test with custom script ──
+
+describe('smoke test with custom script', () => {
+  test('uses pnpm run smoke when package has smoke script', async () => {
+    await setupFixture(tmp)
+    const pkgDir = join(tmp, 'packages/core')
+    const pkgJsonPath = join(pkgDir, 'package.json')
+    const pkgJson = await readFile(pkgJsonPath, 'utf8')
+    const parsed = JSON.parse(pkgJson) as Record<string, unknown>
+    parsed.scripts = { smoke: 'vitest run smoke.test.ts' }
+    parsed.bin = { testcli: './dist/cli.js' }
+    await writeFile(pkgJsonPath, JSON.stringify(parsed, null, 2))
+
+    const { git } = makeGit()
+    const spawnCalls: string[] = []
+    const { npm } = makeNpm()
+
+    const mockSpawn: SpawnFn = async (argv: string[]) => {
+      spawnCalls.push(argv.join(' '))
+      return { code: 0, stdout: 'ok\n', stderr: '' }
+    }
+
+    await publish({ cwd: tmp, git, npm, spawn: mockSpawn })
+
+    // Should use pnpm run smoke, NOT tarball strategy
+    expect(spawnCalls.some((c) => c.includes('pnpm run smoke'))).toBe(true)
+    expect(spawnCalls.some((c) => c.includes('pnpm pack'))).toBe(false)
+  })
+
+  test('aborts publish when custom smoke script fails', async () => {
+    await setupFixture(tmp)
+    const pkgDir = join(tmp, 'packages/core')
+    const pkgJsonPath = join(pkgDir, 'package.json')
+    const pkgJson = await readFile(pkgJsonPath, 'utf8')
+    const parsed = JSON.parse(pkgJson) as Record<string, unknown>
+    parsed.scripts = { smoke: 'vitest run smoke.test.ts' }
+    await writeFile(pkgJsonPath, JSON.stringify(parsed, null, 2))
+
+    const { git } = makeGit()
+    const published: string[] = []
+    const { npm } = makeNpm({
+      publish: async (dir) => {
+        published.push(dir)
+      },
+    })
+
+    const mockSpawn: SpawnFn = async () => {
+      return { code: 1, stdout: '', stderr: 'FAIL smoke tests' }
+    }
+
+    await expect(publish({ cwd: tmp, git, npm, spawn: mockSpawn })).rejects.toThrow(
+      'smoke test failed',
+    )
+    expect(published).toHaveLength(0)
   })
 })

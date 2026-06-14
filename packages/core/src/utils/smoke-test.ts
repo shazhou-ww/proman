@@ -7,6 +7,7 @@ type PackageJson = {
   name: string
   version: string
   bin?: string | Record<string, string>
+  scripts?: Record<string, string>
   dependencies?: Record<string, string>
 }
 
@@ -16,6 +17,42 @@ type PackageJson = {
  * so bin commands can resolve them without npm install.
  */
 export type WorkspacePackages = Record<string, string>
+
+/**
+ * Smoke test a package using priority-based strategy:
+ * 1. If package.json has a "smoke" script → run `pnpm run smoke`
+ * 2. If no smoke script but has bin entries → fallback to tarball strategy
+ * 3. If neither → skip entirely
+ *
+ * @param workspacePackages - Map of workspace package names to their absolute
+ *   paths. When provided, workspace dependencies are symlinked into the
+ *   extracted tarball's node_modules so bin commands can resolve them.
+ */
+export async function smokeTest(
+  pkgDir: string,
+  spawn: SpawnFn,
+  workspacePackages?: WorkspacePackages,
+): Promise<void> {
+  const pkgJsonPath = join(pkgDir, 'package.json')
+  const pkgJsonText = await readFile(pkgJsonPath, 'utf8')
+  const pkgJson = JSON.parse(pkgJsonText) as PackageJson
+
+  // Priority 1: Use custom smoke script if available
+  if (pkgJson.scripts?.smoke) {
+    const result = await spawn(['pnpm', 'run', 'smoke'], pkgDir)
+    if (result.code !== 0) {
+      const errorMsg = result.stderr.trim() || result.stdout.trim()
+      throw new Error(
+        `smoke test failed: ${errorMsg || 'non-zero exit code'}`,
+      )
+    }
+    return
+  }
+
+  // Priority 2: Fallback to tarball-based bin --version strategy
+  // Priority 3: Skip if no bin entries (handled inside smokeTestTarball)
+  await smokeTestTarball(pkgDir, spawn, workspacePackages)
+}
 
 /**
  * Smoke test a package tarball by extracting it and running bin commands.
