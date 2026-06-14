@@ -42,9 +42,7 @@ export async function smokeTest(
     const result = await spawn(['pnpm', 'run', 'smoke'], pkgDir)
     if (result.code !== 0) {
       const errorMsg = result.stderr.trim() || result.stdout.trim()
-      throw new Error(
-        `smoke test failed: ${errorMsg || 'non-zero exit code'}`,
-      )
+      throw new Error(`smoke test failed: ${errorMsg || 'non-zero exit code'}`)
     }
     return
   }
