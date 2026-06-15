@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 import {
   build,
   bump,
+  cardsAffected,
   cardsIndex,
   cardsList,
   cardsOrphans,
@@ -56,6 +57,9 @@ Commands:
                           --id <id>             Get card details by id
   cards list            List all indexed cards
   cards orphans         Find source files not referenced by any card
+  cards validate       Validate card frontmatter format
+  cards affected       Find cards affected by recent git changes
+                          --since <ref>         Commit hash, date, or tag (default: 7 days)
   prompt setup          Show skill installation instructions (for agents)
   prompt usage          Show full CLI usage as markdown (for agents)
 
@@ -309,8 +313,42 @@ async function main(argv: string[]): Promise<void> {
       }
       process.exit(1)
     }
+    if (sub === 'affected') {
+      let since: string | undefined
+      const subArgs = argv.slice(2)
+      for (let i = 0; i < subArgs.length; i++) {
+        if (subArgs[i] === '--since') {
+          since = subArgs[i + 1]
+          if (!since) throw new Error('--since requires a value')
+          i++
+        } else {
+          throw new Error(`unknown flag: ${subArgs[i]}`)
+        }
+      }
+      const result = await cardsAffected({ cwd: process.cwd(), since })
+      if (result.stale.length === 0 && result.uncovered.length === 0) {
+        console.log('No affected cards or uncovered changes found.')
+        return
+      }
+      if (result.stale.length > 0) {
+        console.log('## Stale Cards')
+        for (const card of result.stale) {
+          const commitWord = card.commits === 1 ? 'commit' : 'commits'
+          console.log(`${card.id}\t${card.commits} ${commitWord}\t(${card.files.join(', ')})`)
+        }
+      }
+      if (result.uncovered.length > 0) {
+        if (result.stale.length > 0) console.log('')
+        console.log('## Uncovered Files')
+        for (const file of result.uncovered) {
+          const commitWord = file.commits === 1 ? 'commit' : 'commits'
+          console.log(`${file.file}\t(${file.commits} ${commitWord})`)
+        }
+      }
+      return
+    }
     throw new Error(
-      `Unknown cards subcommand: ${sub ?? '(none)'}. Available: index, query, list, orphans, validate`,
+      `Unknown cards subcommand: ${sub ?? '(none)'}. Available: index, query, list, orphans, validate, affected`,
     )
   }
   if (cmd === 'prompt') {
