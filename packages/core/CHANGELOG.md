@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.10.0 — 2026-06-15
+
+- feat: add `cards validate`, `cards affected`, and `cards toc` subcommands
+  
+  - `proman cards validate` — check frontmatter format (id, title, sources, tags)
+  - `proman cards affected --since <ref>` — find stale cards and uncovered files based on git changelog
+  - `proman cards toc` — output agent-friendly markdown table of all knowledge cards
+  
+  Also fixes `parseFrontmatter` handling of empty inline arrays (`tags: []`).
+- feat: add `proman cards` subcommand family for project knowledge card index management
+  
+  New commands:
+  - `proman cards index` — scan `cards/*.md`, parse frontmatter, generate `.cards-index.json`
+  - `proman cards query --sources <files...>` — find cards by source file references
+  - `proman cards query --tag <tag>` — filter cards by tag
+  - `proman cards query --id <id>` — get full card details by id
+  - `proman cards list` — list all indexed cards with id, title, tags
+  - `proman cards orphans` — find source files not referenced by any card
+  
+  Index file structure: `by_source` (file → card ids) and `by_id` (id → title, sources, tags).
+  `.cards-index.json` is added to `.gitignore` as a build artifact.
+- feat: optimize smoke test strategy — use package.json smoke script when available
+  
+  Adds priority-based smoke testing:
+  1. If a package has a "smoke" script in package.json, run `pnpm run smoke`
+  2. If no smoke script but has bin entries, fallback to tarball `node <bin> --version`
+  3. If neither, skip smoke testing entirely
+  
+  Also adds `--skip-smoke` flag to `proman publish` as an escape hatch.
+
 ## 0.9.2 — 2026-06-13
 
 - Fix build regression: cli type falls back to tsc when no build script
