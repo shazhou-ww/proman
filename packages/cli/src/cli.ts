@@ -5,6 +5,10 @@ import { fileURLToPath } from 'node:url'
 import {
   build,
   bump,
+  cardsIndex,
+  cardsList,
+  cardsOrphans,
+  cardsQuery,
   check,
   deploy,
   format,
@@ -44,6 +48,13 @@ Commands:
   unlink [package]      Unlink and restore packages from registry
                           (no args)         Unlink all linked packages
                           <package>         Unlink specific package
+  cards index           Scan cards/*.md and generate .cards-index.json
+  cards query           Query cards index
+                          --sources <files...>  Find cards by source files
+                          --tag <tag>           Find cards by tag
+                          --id <id>             Get card details by id
+  cards list            List all indexed cards
+  cards orphans         Find source files not referenced by any card
   prompt setup          Show skill installation instructions (for agents)
   prompt usage          Show full CLI usage as markdown (for agents)
 
@@ -143,6 +154,44 @@ export function parseLinkArgs(argv: string[]): {
   return { packageName, status }
 }
 
+export function parseCardsQueryArgs(argv: string[]): {
+  sources?: string[]
+  tag?: string
+  id?: string
+} {
+  let sources: string[] | undefined
+  let tag: string | undefined
+  let id: string | undefined
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i]
+    if (a === '--sources') {
+      sources = []
+      // Collect all following args until next flag or end
+      while (i + 1 < argv.length && !argv[i + 1].startsWith('--')) {
+        sources.push(argv[i + 1])
+        i++
+      }
+      if (sources.length === 0) throw new Error('--sources requires at least one file')
+    } else if (a === '--tag') {
+      const v = argv[i + 1]
+      if (v === undefined) throw new Error('--tag requires a value')
+      tag = v
+      i++
+    } else if (a === '--id') {
+      const v = argv[i + 1]
+      if (v === undefined) throw new Error('--id requires a value')
+      id = v
+      i++
+    } else {
+      throw new Error(`unknown flag: ${a}`)
+    }
+  }
+  if (!sources && !tag && !id) {
+    throw new Error('cards query requires --sources, --tag, or --id')
+  }
+  return { sources, tag, id }
+}
+
 async function main(argv: string[]): Promise<void> {
   const cmd = argv[0]
   const isCI = process.env.CI === 'true' || process.env.CI === '1'
@@ -211,6 +260,43 @@ async function main(argv: string[]): Promise<void> {
     const { packageName } = parseLinkArgs(argv.slice(1))
     await unlink({ cwd: process.cwd(), packageName })
     return
+  }
+  if (cmd === 'cards') {
+    const sub = argv[1]
+    if (sub === 'index') {
+      const result = await cardsIndex({ cwd: process.cwd() })
+      console.log(`Indexed ${result.count} cards`)
+      return
+    }
+    if (sub === 'query') {
+      const queryArgs = parseCardsQueryArgs(argv.slice(2))
+      const result = await cardsQuery({ cwd: process.cwd(), ...queryArgs })
+      if (Array.isArray(result)) {
+        for (const id of result) {
+          console.log(id)
+        }
+      } else {
+        console.log(JSON.stringify(result, null, 2))
+      }
+      return
+    }
+    if (sub === 'list') {
+      const result = await cardsList({ cwd: process.cwd() })
+      for (const card of result) {
+        console.log(`${card.id}\t${card.title}\t[${card.tags.join(', ')}]`)
+      }
+      return
+    }
+    if (sub === 'orphans') {
+      const result = await cardsOrphans({ cwd: process.cwd(), srcPaths: ['src/'] })
+      for (const file of result) {
+        console.log(file)
+      }
+      return
+    }
+    throw new Error(
+      `Unknown cards subcommand: ${sub ?? '(none)'}. Available: index, query, list, orphans`,
+    )
   }
   if (cmd === 'prompt') {
     const sub = argv[1]

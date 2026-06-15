@@ -6,3 +6,4 @@ bun.lockb
 .proman/
 .worktrees/
 *.tsbuildinfo
+.cards-index.json

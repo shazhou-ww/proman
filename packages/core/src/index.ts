@@ -2,6 +2,14 @@
 
 export type {
   BumpOptions,
+  CardDetail,
+  CardEntry,
+  CardSummary,
+  CardsIndex,
+  CardsIndexOptions,
+  CardsListOptions,
+  CardsOrphansOptions,
+  CardsQueryOptions,
   DeployCommandOptions,
   DevCommandOptions,
   InitOptions,
@@ -12,6 +20,10 @@ export type {
 export {
   build,
   bump,
+  cardsIndex,
+  cardsList,
+  cardsOrphans,
+  cardsQuery,
   check,
   deploy,
   format,
