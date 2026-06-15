@@ -62,6 +62,10 @@ export type CardsAffectedOptions = {
   since?: string // commit hash, date, or tag
 }
 
+export type CardsTocOptions = {
+  cwd: string
+}
+
 export type StaleCard = {
   id: string
   title: string
@@ -335,6 +339,24 @@ export async function cardsValidate(opts: CardsValidateOptions): Promise<CardVal
   }
 
   return errors
+}
+
+export async function cardsToc(opts: CardsTocOptions): Promise<string> {
+  const { cwd } = opts
+  const index = loadIndex(cwd)
+
+  const entries = Object.entries(index.by_id)
+  if (entries.length === 0) {
+    return 'No knowledge cards found. Run `proman cards index` first.'
+  }
+
+  const lines: string[] = ['| Card | Sources |', '|------|---------|']
+  for (const [id, entry] of entries) {
+    const sources = entry.sources.length > 0 ? entry.sources.join(', ') : '(none)'
+    lines.push(`| ${id} — ${entry.title} | ${sources} |`)
+  }
+
+  return lines.join('\n')
 }
 
 export async function cardsAffected(opts: CardsAffectedOptions): Promise<CardsAffectedResult> {

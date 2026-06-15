@@ -10,6 +10,7 @@ import {
   cardsList,
   cardsOrphans,
   cardsQuery,
+  cardsToc,
   cardsValidate,
   check,
   deploy,
@@ -60,6 +61,7 @@ Commands:
   cards validate       Validate card frontmatter format
   cards affected       Find cards affected by recent git changes
                           --since <ref>         Commit hash, date, or tag (default: 7 days)
+  cards toc            Show knowledge cards table of contents (agent-friendly)
   prompt setup          Show skill installation instructions (for agents)
   prompt usage          Show full CLI usage as markdown (for agents)
 
@@ -347,8 +349,13 @@ async function main(argv: string[]): Promise<void> {
       }
       return
     }
+    if (sub === 'toc') {
+      const toc = await cardsToc({ cwd: process.cwd() })
+      console.log(toc)
+      return
+    }
     throw new Error(
-      `Unknown cards subcommand: ${sub ?? '(none)'}. Available: index, query, list, orphans, validate, affected`,
+      `Unknown cards subcommand: ${sub ?? '(none)'}. Available: index, query, list, orphans, validate, affected, toc`,
     )
   }
   if (cmd === 'prompt') {
