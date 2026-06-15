@@ -47,6 +47,15 @@ export type CardsOrphansOptions = {
   srcPaths: string[]
 }
 
+export type CardsValidateOptions = {
+  cwd: string
+}
+
+export type CardValidationError = {
+  file: string
+  errors: string[]
+}
+
 // --- Helpers ---
 
 function parseFrontmatter(content: string): Record<string, unknown> | null {
@@ -78,18 +87,25 @@ function parseFrontmatter(content: string): Record<string, unknown> | null {
       const key = kvMatch[1]
       const value = kvMatch[2].trim()
 
+      // Empty inline array: []
+      if (value === '[]') {
+        result[key] = []
+        currentKey = key
+      }
       // Inline array: [item1, item2]
-      const inlineArrayMatch = value.match(/^\[(.+)\]$/)
-      if (inlineArrayMatch) {
-        result[key] = inlineArrayMatch[1].split(',').map((s) => s.trim())
-        currentKey = key
-      } else if (value === '') {
-        // Start of multi-line array
-        currentKey = key
-        currentArray = []
-      } else {
-        result[key] = value
-        currentKey = key
+      else {
+        const inlineArrayMatch = value.match(/^\[(.+)\]$/)
+        if (inlineArrayMatch) {
+          result[key] = inlineArrayMatch[1].split(',').map((s) => s.trim())
+          currentKey = key
+        } else if (value === '') {
+          // Start of multi-line array
+          currentKey = key
+          currentArray = []
+        } else {
+          result[key] = value
+          currentKey = key
+        }
       }
     }
   }
@@ -238,4 +254,62 @@ export async function cardsOrphans(opts: CardsOrphansOptions): Promise<string[]>
   const allSources = collectSourceFiles(cwd, srcPaths)
 
   return allSources.filter((f) => !referencedSources.has(f))
+}
+
+const KEBAB_CASE_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/
+
+export async function cardsValidate(opts: CardsValidateOptions): Promise<CardValidationError[]> {
+  const { cwd } = opts
+  const cardsDir = join(cwd, 'cards')
+  const errors: CardValidationError[] = []
+
+  if (!existsSync(cardsDir)) {
+    return errors
+  }
+
+  const files = readdirSync(cardsDir).filter((f) => f.endsWith('.md'))
+
+  for (const file of files) {
+    const content = readFileSync(join(cardsDir, file), 'utf-8')
+    const fm = parseFrontmatter(content)
+    const fileErrors: string[] = []
+
+    if (!fm) {
+      fileErrors.push('missing frontmatter')
+      errors.push({ file, errors: fileErrors })
+      continue
+    }
+
+    // id: required, kebab-case
+    if (!fm.id) {
+      fileErrors.push('missing required field: id')
+    } else if (typeof fm.id !== 'string' || !KEBAB_CASE_RE.test(fm.id)) {
+      fileErrors.push(`id must be kebab-case, got: ${fm.id}`)
+    }
+
+    // title: required
+    if (!fm.title) {
+      fileErrors.push('missing required field: title')
+    }
+
+    // sources: required, array
+    if (!fm.sources) {
+      fileErrors.push('missing required field: sources')
+    } else if (!Array.isArray(fm.sources)) {
+      fileErrors.push(`sources must be an array, got: ${typeof fm.sources}`)
+    }
+
+    // tags: required, array
+    if (!fm.tags) {
+      fileErrors.push('missing required field: tags')
+    } else if (!Array.isArray(fm.tags)) {
+      fileErrors.push(`tags must be an array, got: ${typeof fm.tags}`)
+    }
+
+    if (fileErrors.length > 0) {
+      errors.push({ file, errors: fileErrors })
+    }
+  }
+
+  return errors
 }
