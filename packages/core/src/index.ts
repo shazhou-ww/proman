@@ -5,6 +5,8 @@ export type {
   CardDetail,
   CardEntry,
   CardSummary,
+  CardsAffectedOptions,
+  CardsAffectedResult,
   CardsIndex,
   CardsIndexOptions,
   CardsListOptions,
@@ -17,11 +19,14 @@ export type {
   InitOptions,
   LinkCommandOptions,
   PublishOptions,
+  StaleCard,
+  UncoveredFile,
 } from './commands/index.js'
 // Re-export all command functions
 export {
   build,
   bump,
+  cardsAffected,
   cardsIndex,
   cardsList,
   cardsOrphans,

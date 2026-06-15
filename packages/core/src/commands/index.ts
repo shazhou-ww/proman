@@ -4,6 +4,8 @@ export {
   type CardDetail,
   type CardEntry,
   type CardSummary,
+  type CardsAffectedOptions,
+  type CardsAffectedResult,
   type CardsIndex,
   type CardsIndexOptions,
   type CardsListOptions,
@@ -11,11 +13,14 @@ export {
   type CardsQueryOptions,
   type CardsValidateOptions,
   type CardValidationError,
+  cardsAffected,
   cardsIndex,
   cardsList,
   cardsOrphans,
   cardsQuery,
   cardsValidate,
+  type StaleCard,
+  type UncoveredFile,
 } from './cards.js'
 export { type DeployCommandOptions, deploy } from './deploy.js'
 export { build, check, type DevCommandOptions, format, runTests } from './dev.js'

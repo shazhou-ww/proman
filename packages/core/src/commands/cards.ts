@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 
@@ -54,6 +55,28 @@ export type CardsValidateOptions = {
 export type CardValidationError = {
   file: string
   errors: string[]
+}
+
+export type CardsAffectedOptions = {
+  cwd: string
+  since?: string // commit hash, date, or tag
+}
+
+export type StaleCard = {
+  id: string
+  title: string
+  commits: number
+  files: string[]
+}
+
+export type UncoveredFile = {
+  file: string
+  commits: number
+}
+
+export type CardsAffectedResult = {
+  stale: StaleCard[]
+  uncovered: UncoveredFile[]
 }
 
 // --- Helpers ---
@@ -229,7 +252,7 @@ export async function cardsQuery(opts: CardsQueryOptions): Promise<string[] | Ca
         }
       }
     }
-    return [...cardIds]
+    return Array.from(cardIds)
   }
 
   return []
@@ -312,4 +335,136 @@ export async function cardsValidate(opts: CardsValidateOptions): Promise<CardVal
   }
 
   return errors
+}
+
+export async function cardsAffected(opts: CardsAffectedOptions): Promise<CardsAffectedResult> {
+  const { cwd, since } = opts
+  const index = loadIndex(cwd)
+
+  // Get changed files from git log
+  const sinceArg = since ? since : ''
+  // If since looks like a date (contains -), use --since; otherwise treat as commit ref
+  let gitCmd: string
+  if (!sinceArg) {
+    // Default: last 7 days
+    gitCmd = 'git log --since="7 days ago" --name-only --pretty=format:"%H"'
+  } else if (/^\d{4}-\d{2}/.test(sinceArg)) {
+    gitCmd = `git log --since="${sinceArg}" --name-only --pretty=format:"%H"`
+  } else {
+    gitCmd = `git log ${sinceArg}..HEAD --name-only --pretty=format:"%H"`
+  }
+
+  let gitOutput: string
+  try {
+    gitOutput = execSync(gitCmd, { cwd, encoding: 'utf-8' }).trim()
+  } catch {
+    return { stale: [], uncovered: [] }
+  }
+
+  if (!gitOutput) {
+    return { stale: [], uncovered: [] }
+  }
+
+  // Parse git output: count commits per file
+  const fileCommitCounts = new Map<string, number>()
+  let currentCommit = false
+  for (const line of gitOutput.split('\n')) {
+    const trimmed = line.trim()
+    if (!trimmed) {
+      currentCommit = false
+      continue
+    }
+    // Commit hash lines are 40 hex chars
+    if (/^[0-9a-f]{40}$/.test(trimmed)) {
+      currentCommit = true
+      continue
+    }
+    if (currentCommit || !trimmed.startsWith('"')) {
+      // This is a file path
+      fileCommitCounts.set(trimmed, (fileCommitCounts.get(trimmed) ?? 0) + 1)
+    }
+  }
+
+  // Build reverse index: source pattern -> card IDs (with prefix matching for directories)
+  const staleMap = new Map<string, { commits: Set<string>; totalCommits: number }>()
+  const coveredFiles = new Set<string>()
+
+  for (const [changedFile, commitCount] of Array.from(fileCommitCounts.entries())) {
+    let matched = false
+
+    for (const [cardId, entry] of Object.entries(index.by_id)) {
+      for (const source of entry.sources) {
+        // Exact match or prefix match (source is a directory)
+        const isMatch =
+          changedFile === source ||
+          changedFile.startsWith(source.endsWith('/') ? source : `${source}/`)
+        if (isMatch) {
+          matched = true
+          coveredFiles.add(changedFile)
+          if (!staleMap.has(cardId)) {
+            staleMap.set(cardId, { commits: new Set(), totalCommits: 0 })
+          }
+          const entry = staleMap.get(cardId)!
+          entry.commits.add(changedFile)
+          entry.totalCommits += commitCount
+        }
+      }
+    }
+
+    // Also check by_source for exact matches
+    if (!matched && index.by_source[changedFile]) {
+      matched = true
+      coveredFiles.add(changedFile)
+      for (const cardId of index.by_source[changedFile]) {
+        if (!staleMap.has(cardId)) {
+          staleMap.set(cardId, { commits: new Set(), totalCommits: 0 })
+        }
+        const entry = staleMap.get(cardId)!
+        entry.commits.add(changedFile)
+        entry.totalCommits += commitCount
+      }
+    }
+
+    if (!matched) {
+      // Not covered by any card
+    }
+  }
+
+  // Build stale cards list
+  const stale: StaleCard[] = []
+  for (const [cardId, data] of Array.from(staleMap.entries())) {
+    const cardEntry = index.by_id[cardId]
+    stale.push({
+      id: cardId,
+      title: cardEntry?.title ?? '',
+      commits: data.totalCommits,
+      files: Array.from(data.commits),
+    })
+  }
+  // Sort by commit count descending
+  stale.sort((a, b) => b.commits - a.commits)
+
+  // Build uncovered files list (filter out non-source noise)
+  const IGNORE_PATTERNS = [
+    /^\./, // dotfiles and dotdirs (.ocas, .changeset, .gitignore, etc.)
+    /^cards\//, // cards themselves
+    /^specs\//, // spec files
+    /^node_modules\//, // deps
+    /\.test\.(ts|tsx|js|jsx)$/, // test files
+    /^tests\//, // test directories
+    /\.(md|json|yaml|yml|toml|lock)$/, // config/doc files
+  ]
+
+  const uncovered: UncoveredFile[] = []
+  for (const [file, commits] of Array.from(fileCommitCounts.entries())) {
+    if (!coveredFiles.has(file)) {
+      // Skip files matching ignore patterns
+      if (IGNORE_PATTERNS.some((p) => p.test(file))) continue
+      uncovered.push({ file, commits })
+    }
+  }
+  // Sort by commit count descending
+  uncovered.sort((a, b) => b.commits - a.commits)
+
+  return { stale, uncovered }
 }
