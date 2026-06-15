@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
-import { cardsIndex, cardsList, cardsOrphans, cardsQuery } from './cards.js'
+import { cardsIndex, cardsList, cardsOrphans, cardsQuery, cardsValidate } from './cards.js'
 
 describe('proman cards', () => {
   let testDir: string
@@ -391,6 +391,164 @@ Some content here.
       await expect(cardsOrphans({ cwd: testDir, srcPaths: ['src/'] })).rejects.toThrow(
         /proman cards index/,
       )
+    })
+  })
+
+  describe('parseFrontmatter empty array', () => {
+    test('parses tags: [] as empty array, not string', async () => {
+      const cardsDir = join(testDir, 'cards')
+      mkdirSync(cardsDir, { recursive: true })
+
+      writeFileSync(
+        join(cardsDir, 'empty-tags.md'),
+        `---
+id: empty-tags
+title: "Empty Tags Card"
+sources:
+  - src/foo.ts
+tags: []
+---
+
+# Empty Tags
+`,
+      )
+
+      const result = await cardsIndex({ cwd: testDir })
+      expect(result.count).toBe(1)
+
+      const index = JSON.parse(readFileSync(join(testDir, '.cards-index.json'), 'utf-8'))
+      expect(index.by_id['empty-tags'].tags).toEqual([])
+      expect(Array.isArray(index.by_id['empty-tags'].tags)).toBe(true)
+    })
+
+    test('parses sources: [] as empty array', async () => {
+      const cardsDir = join(testDir, 'cards')
+      mkdirSync(cardsDir, { recursive: true })
+
+      writeFileSync(
+        join(cardsDir, 'empty-sources.md'),
+        `---
+id: empty-sources
+title: "Empty Sources"
+sources: []
+tags: [test]
+---
+
+# Empty Sources
+`,
+      )
+
+      const result = await cardsIndex({ cwd: testDir })
+      expect(result.count).toBe(1)
+
+      const index = JSON.parse(readFileSync(join(testDir, '.cards-index.json'), 'utf-8'))
+      expect(index.by_id['empty-sources'].sources).toEqual([])
+      expect(Array.isArray(index.by_id['empty-sources'].sources)).toBe(true)
+    })
+  })
+
+  describe('cards validate', () => {
+    test('returns no errors for valid cards', async () => {
+      const cardsDir = join(testDir, 'cards')
+      mkdirSync(cardsDir, { recursive: true })
+
+      writeFileSync(
+        join(cardsDir, 'valid.md'),
+        `---
+id: valid-card
+title: "A Valid Card"
+sources:
+  - src/foo.ts
+tags: [test]
+---
+
+# Valid Card
+`,
+      )
+
+      const errors = await cardsValidate({ cwd: testDir })
+      expect(errors).toEqual([])
+    })
+
+    test('returns no errors for cards with empty arrays', async () => {
+      const cardsDir = join(testDir, 'cards')
+      mkdirSync(cardsDir, { recursive: true })
+
+      writeFileSync(
+        join(cardsDir, 'empty-arrays.md'),
+        `---
+id: empty-arrays
+title: "Card with empty arrays"
+sources: []
+tags: []
+---
+
+# Empty Arrays
+`,
+      )
+
+      const errors = await cardsValidate({ cwd: testDir })
+      expect(errors).toEqual([])
+    })
+
+    test('reports missing frontmatter', async () => {
+      const cardsDir = join(testDir, 'cards')
+      mkdirSync(cardsDir, { recursive: true })
+
+      writeFileSync(join(cardsDir, 'no-fm.md'), '# No Frontmatter\n\nJust content.\n')
+
+      const errors = await cardsValidate({ cwd: testDir })
+      expect(errors).toEqual([{ file: 'no-fm.md', errors: ['missing frontmatter'] }])
+    })
+
+    test('reports missing required fields', async () => {
+      const cardsDir = join(testDir, 'cards')
+      mkdirSync(cardsDir, { recursive: true })
+
+      writeFileSync(
+        join(cardsDir, 'missing-fields.md'),
+        `---
+title: "Has title only"
+---
+
+# Missing Fields
+`,
+      )
+
+      const errors = await cardsValidate({ cwd: testDir })
+      expect(errors.length).toBe(1)
+      expect(errors[0].file).toBe('missing-fields.md')
+      expect(errors[0].errors).toContain('missing required field: id')
+      expect(errors[0].errors).toContain('missing required field: sources')
+      expect(errors[0].errors).toContain('missing required field: tags')
+    })
+
+    test('reports non-kebab-case id', async () => {
+      const cardsDir = join(testDir, 'cards')
+      mkdirSync(cardsDir, { recursive: true })
+
+      writeFileSync(
+        join(cardsDir, 'bad-id.md'),
+        `---
+id: Bad_ID_Here
+title: "Bad ID"
+sources:
+  - src/foo.ts
+tags: [test]
+---
+
+# Bad ID
+`,
+      )
+
+      const errors = await cardsValidate({ cwd: testDir })
+      expect(errors.length).toBe(1)
+      expect(errors[0].errors[0]).toMatch(/kebab-case/)
+    })
+
+    test('returns empty array when cards directory does not exist', async () => {
+      const errors = await cardsValidate({ cwd: testDir })
+      expect(errors).toEqual([])
     })
   })
 })

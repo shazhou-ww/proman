@@ -9,10 +9,13 @@ export {
   type CardsListOptions,
   type CardsOrphansOptions,
   type CardsQueryOptions,
+  type CardsValidateOptions,
+  type CardValidationError,
   cardsIndex,
   cardsList,
   cardsOrphans,
   cardsQuery,
+  cardsValidate,
 } from './cards.js'
 export { type DeployCommandOptions, deploy } from './deploy.js'
 export { build, check, type DevCommandOptions, format, runTests } from './dev.js'

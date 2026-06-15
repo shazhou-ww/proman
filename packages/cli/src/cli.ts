@@ -9,6 +9,7 @@ import {
   cardsList,
   cardsOrphans,
   cardsQuery,
+  cardsValidate,
   check,
   deploy,
   format,
@@ -294,8 +295,22 @@ async function main(argv: string[]): Promise<void> {
       }
       return
     }
+    if (sub === 'validate') {
+      const errors = await cardsValidate({ cwd: process.cwd() })
+      if (errors.length === 0) {
+        console.log('All cards valid')
+        return
+      }
+      for (const e of errors) {
+        console.log(`${e.file}:`)
+        for (const err of e.errors) {
+          console.log(`  - ${err}`)
+        }
+      }
+      process.exit(1)
+    }
     throw new Error(
-      `Unknown cards subcommand: ${sub ?? '(none)'}. Available: index, query, list, orphans`,
+      `Unknown cards subcommand: ${sub ?? '(none)'}. Available: index, query, list, orphans, validate`,
     )
   }
   if (cmd === 'prompt') {
