@@ -1,6 +1,6 @@
 import { execSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { join, relative } from 'node:path'
+import { basename, join, relative } from 'node:path'
 
 // --- Types ---
 
@@ -346,11 +346,13 @@ export async function cardsToc(opts: CardsTocOptions): Promise<string> {
   const index = loadIndex(cwd)
 
   const entries = Object.entries(index.by_id)
-  if (entries.length === 0) {
-    return 'No knowledge cards found. Run `proman cards index` first.'
-  }
-
-  const lines: string[] = ['| Card | Sources |', '|------|---------|']
+  const projectName = basename(cwd)
+  const lines: string[] = [
+    `# Knowledge Cards — ${projectName}`,
+    '',
+    '| Card | Sources |',
+    '|------|---------|',
+  ]
   for (const [id, entry] of entries) {
     const sources = entry.sources.length > 0 ? entry.sources.join(', ') : '(none)'
     lines.push(`| ${id} — ${entry.title} | ${sources} |`)

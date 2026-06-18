@@ -2,7 +2,14 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
-import { cardsIndex, cardsList, cardsOrphans, cardsQuery, cardsValidate } from './cards.js'
+import {
+  cardsIndex,
+  cardsList,
+  cardsOrphans,
+  cardsQuery,
+  cardsToc,
+  cardsValidate,
+} from './cards.js'
 
 describe('proman cards', () => {
   let testDir: string
@@ -335,6 +342,37 @@ Some content here.
 
     test('throws error if .cards-index.json does not exist', async () => {
       await expect(cardsList({ cwd: testDir })).rejects.toThrow(/proman cards index/)
+    })
+  })
+
+  describe('cards toc', () => {
+    test('outputs a markdown TOC with project header', async () => {
+      writeFileSync(
+        join(testDir, '.cards-index.json'),
+        JSON.stringify({
+          by_source: {},
+          by_id: {
+            'nerve-plugin-system': {
+              title: 'Plugin 加载机制',
+              sources: ['src/plugins/loader.ts'],
+              tags: ['architecture', 'plugins'],
+            },
+            'config-loading': {
+              title: '配置加载流程',
+              sources: [],
+              tags: ['config', 'core'],
+            },
+          },
+        }),
+      )
+
+      const result = await cardsToc({ cwd: testDir })
+      const projectName = testDir.split('/').pop()
+
+      expect(result).toContain(`# Knowledge Cards — ${projectName}`)
+      expect(result).toContain('| Card | Sources |')
+      expect(result).toContain('| nerve-plugin-system — Plugin 加载机制 | src/plugins/loader.ts |')
+      expect(result).toContain('| config-loading — 配置加载流程 | (none) |')
     })
   })
 
