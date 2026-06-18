@@ -7,3 +7,4 @@ bun.lockb
 .worktrees/
 *.tsbuildinfo
 .cards-index.json
+.ocas/
