@@ -5,6 +5,8 @@ import {
   computeBuildFingerprints,
   computeRootFingerprint,
   fingerprintPath,
+  isBuildCacheValid,
+  listOutputFiles,
   readFingerprint,
   writeFingerprint,
 } from '../utils/fingerprint.js'
@@ -46,9 +48,10 @@ export async function build(opts: DevCommandOptions): Promise<void> {
 
     if (useFingerprint && !force) {
       const stored = readFingerprint(fpPath)
-      if (stored === fpValue) {
+      const distDir = join(pkgDir, 'dist')
+      if (isBuildCacheValid(distDir, stored, fpValue)) {
         console.log(`⏭ build: ${pkg.name} (unchanged)`)
-        continue // skip — fingerprint matches
+        continue // skip — hash matches AND all outputs present
       }
     }
 
@@ -99,8 +102,9 @@ export async function build(opts: DevCommandOptions): Promise<void> {
 
   // Write fingerprints only after ALL builds succeed (and only when enabled)
   if (useFingerprint) {
-    for (const { fpPath, fpValue } of toRun) {
-      writeFingerprint(fpPath, fpValue)
+    for (const { fpPath, fpValue, pkgDir } of toRun) {
+      const outputs = listOutputFiles(join(pkgDir, 'dist'))
+      writeFingerprint(fpPath, { hash: fpValue, outputs })
     }
   }
 }
@@ -137,14 +141,14 @@ export async function runTests(opts: DevCommandOptions): Promise<void> {
 
     if (!force) {
       const stored = readFingerprint(fpPath)
-      if (stored === fpValue) {
+      if (stored?.hash === fpValue) {
         console.log('⏭ test (unchanged)')
         return // skip
       }
     }
 
     await runOrThrow(spawn, pnpmExec('vitest', 'run'), cwd)
-    writeFingerprint(fpPath, fpValue)
+    writeFingerprint(fpPath, { hash: fpValue })
   } else {
     await runOrThrow(spawn, pnpmExec('vitest', 'run'), cwd)
   }
@@ -162,7 +166,7 @@ export async function check(opts: DevCommandOptions): Promise<void> {
 
     if (!force) {
       const stored = readFingerprint(fpPath)
-      if (stored === fpValue) {
+      if (stored?.hash === fpValue) {
         console.log('⏭ check (unchanged)')
         return // skip
       }
@@ -170,7 +174,7 @@ export async function check(opts: DevCommandOptions): Promise<void> {
 
     await runOrThrow(spawn, pnpmExec('biome', 'check', '.'), cwd)
     await validateWorkflows(spawn, cwd)
-    writeFingerprint(fpPath, fpValue)
+    writeFingerprint(fpPath, { hash: fpValue })
   } else {
     await runOrThrow(spawn, pnpmExec('biome', 'check', '.'), cwd)
     await validateWorkflows(spawn, cwd)

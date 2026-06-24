@@ -400,4 +400,46 @@ describe('Build Fingerprint Integration Tests (Issue #135)', () => {
       console.log = originalLog
     }
   })
+
+  test('T11: Deleting a single output file (dist intact, fingerprint intact) forces rebuild', async () => {
+    setupMonorepo()
+    const logs: string[] = []
+    const originalLog = console.log
+    console.log = (msg: string) => {
+      logs.push(msg)
+      originalLog(msg)
+    }
+
+    try {
+      // First build
+      await build({ cwd: tmpDir, force: false, spawn: mockSpawn })
+
+      const fpPath = join(tmpDir, 'packages/pkg/dist/.build-fingerprint')
+      const distIndex = join(tmpDir, 'packages/pkg/dist/index.js')
+      expect(existsSync(fpPath)).toBe(true)
+      expect(existsSync(distIndex)).toBe(true)
+
+      // Delete a single output file — keep dist/ dir and fingerprint
+      rmSync(distIndex)
+      expect(existsSync(distIndex)).toBe(false)
+      expect(existsSync(fpPath)).toBe(true)
+
+      // Clear logs
+      logs.length = 0
+
+      // Second build — should rebuild because output artifact is missing
+      await build({ cwd: tmpDir, force: false, spawn: mockSpawn })
+
+      // Should NOT skip — output file was missing
+      expect(logs.some((log) => log.includes('⏭ build: @test/pkg (unchanged)'))).toBe(false)
+
+      // Output file recreated
+      expect(existsSync(distIndex)).toBe(true)
+
+      // Fingerprint rewritten
+      expect(existsSync(fpPath)).toBe(true)
+    } finally {
+      console.log = originalLog
+    }
+  })
 })

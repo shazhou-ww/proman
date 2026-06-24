@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join, relative, resolve } from 'node:path'
 import type { PackageEntry } from '../config/types.js'
 
@@ -88,19 +88,65 @@ export function hashFiles(dir: string, patterns: string[]): string {
   return hash.digest('hex')
 }
 
-/** Read a stored fingerprint. Returns null if file does not exist. */
-export function readFingerprint(path: string): string | null {
+/** Stored fingerprint data (JSON on disk). */
+export type StoredFingerprint = {
+  /** Source hash for change detection. */
+  hash: string
+  /** Build output files (relative to dist/), recorded on successful build.
+   *  Empty for non-build commands (test/check) — no artifact validation. */
+  outputs?: string[]
+}
+
+/** Read a stored fingerprint. Returns null if file does not exist or is invalid. */
+export function readFingerprint(path: string): StoredFingerprint | null {
   try {
-    return readFileSync(path, 'utf-8').trim()
+    const raw = readFileSync(path, 'utf-8').trim()
+    // v1 JSON format
+    const parsed = JSON.parse(raw) as Partial<StoredFingerprint>
+    if (typeof parsed.hash !== 'string') return null
+    return { hash: parsed.hash, outputs: parsed.outputs }
   } catch {
     return null
   }
 }
 
 /** Write a fingerprint, creating parent dirs as needed. */
-export function writeFingerprint(path: string, hash: string): void {
+export function writeFingerprint(path: string, data: StoredFingerprint): void {
   mkdirSync(dirname(path), { recursive: true })
-  writeFileSync(path, hash)
+  writeFileSync(path, JSON.stringify(data, null, 0) + '\n')
+}
+
+/**
+ * Recursively list all files under a directory (relative paths, sorted).
+ * Used to record build outputs for strict cache validation.
+ */
+export function listOutputFiles(dir: string): string[] {
+  const results: string[] = []
+  function walk(d: string, relBase: string): void {
+    let entries: string[]
+    try {
+      entries = readdirSync(d)
+    } catch {
+      return
+    }
+    for (const name of entries) {
+      const full = join(d, name)
+      const rel = relBase ? join(relBase, name) : name
+      let st: ReturnType<typeof statSync>
+      try {
+        st = statSync(full)
+      } catch {
+        continue
+      }
+      if (st.isDirectory()) {
+        walk(full, rel)
+      } else if (st.isFile()) {
+        results.push(rel)
+      }
+    }
+  }
+  walk(dir, '')
+  return results.sort()
 }
 
 /**
@@ -196,4 +242,19 @@ export function fingerprintPath(cwd: string, command: string, pkgName?: string):
   // For test/check commands or when no package name, use .proman directory
   const filename = pkgName ? `${pkgNameToFilename(pkgName)}.fingerprint` : 'root.fingerprint'
   return join(cwd, '.proman', command, filename)
+}
+
+/**
+ * Check if a build cache is still valid: hash matches AND all recorded outputs exist on disk.
+ * If outputs list is missing/empty (e.g. old format or non-build command), returns false
+ * to force a rebuild — strict mode, no blind trust.
+ */
+export function isBuildCacheValid(
+  distDir: string,
+  stored: StoredFingerprint | null,
+  expectedHash: string,
+): boolean {
+  if (!stored || stored.hash !== expectedHash) return false
+  if (!stored.outputs || stored.outputs.length === 0) return false
+  return stored.outputs.every((f) => existsSync(join(distDir, f)))
 }

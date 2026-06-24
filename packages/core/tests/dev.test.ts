@@ -18,6 +18,13 @@ function makeSpawn(code = 0, stdout = '', stderr = '') {
   const calls: Call[] = []
   const fn: SpawnFn = async (argv, cwd) => {
     calls.push({ argv, cwd })
+    // Simulate successful build: create dist/index.js so fingerprint
+    // output validation (isBuildCacheValid) has artifacts to check.
+    if (code === 0) {
+      const distDir = join(cwd, 'dist')
+      mkdirSync(distDir, { recursive: true })
+      writeFileSync(join(distDir, 'index.js'), '// compiled output\n')
+    }
     return { code, stdout, stderr }
   }
   return { spawn: fn, calls }
