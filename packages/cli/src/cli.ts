@@ -31,9 +31,10 @@ const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf-
 }
 const VERSION = pkg.version
 
-// --- Early: --version / -v ---
+// --- Early: --version / -v (only first positional arg, not subcommand flags) ---
 
-if (process.argv.includes('--version') || process.argv.includes('-v')) {
+const firstToken = process.argv[2]
+if (firstToken === '--version' || firstToken === '-v') {
   process.stdout.write(`${VERSION}\n`)
   process.exit(0)
 }
@@ -162,7 +163,14 @@ cli
   .flag('type', { type: 'string' })
   .returns(versionBumpSchema, '{{ packages }}')
   .action(async (_args, flags) => {
-    const type = flags.type as 'major' | 'minor' | 'patch' | undefined
+    const rawType = flags.type as string | undefined
+    let type: 'major' | 'minor' | 'patch' | undefined
+    if (rawType !== undefined) {
+      if (rawType !== 'major' && rawType !== 'minor' && rawType !== 'patch') {
+        throw new Error('--type must be major, minor, or patch')
+      }
+      type = rawType
+    }
     const bumped = await bump({ type })
     return { packages: bumped }
   })
