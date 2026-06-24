@@ -20,8 +20,10 @@
     "prepare": "git config core.hooksPath .githooks"
   },
   "devDependencies": {
+    "@ocas/cli-kit": "^0.2.1",
     "@types/node": "^22.0.0",
-    "esbuild": "^0.28.0"
+    "esbuild": "^0.28.0",
+    "zod": "^4.4.3"
   },
   "peerDependencies": {
     "@biomejs/biome": "^2.0.0",

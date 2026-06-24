@@ -24,12 +24,18 @@ importers:
         specifier: ^3.0.0
         version: 3.114.17
     devDependencies:
+      '@ocas/cli-kit':
+        specifier: ^0.2.1
+        version: 0.2.1
       '@types/node':
         specifier: ^22.0.0
         version: 22.19.19
       esbuild:
         specifier: ^0.28.0
         version: 0.28.0
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
 
   packages/cli:
     dependencies:
@@ -778,6 +784,10 @@ packages:
   '@jridgewell/trace-mapping@0.3.9':
     resolution: {integrity: sha512-3Belt6tdc8bPgAtbcmdtNJlirVoTmEb5e2gC94PnkwEW9jI6CAHUeoG85tjWP5WquqfavoMtMwiG4P926ZKKuQ==}
 
+  '@ocas/cli-kit@0.2.1':
+    resolution: {integrity: sha512-vhEwsoU9Z6XS7Rl+YS6xZjsJVkQSO2DaKX98gAbvuuT14N2KHtuR/4tclCRxZBnFCx7DnLL3GfYRDTNfwFg5vw==}
+    engines: {node: '>=24.15.0'}
+
   '@rollup/rollup-android-arm-eabi@4.61.0':
     resolution: {integrity: sha512-dnxczajOqt0gesZlN5pGQ1s1imQVrsmCw5G2Ci4oM+0WvNz3pyRnlWrT7McoZIb8VlFwCawdmbWRmxRn7HI+VQ==}
     cpu: [arm]
@@ -1342,6 +1352,9 @@ packages:
   zod@3.22.3:
     resolution: {integrity: sha512-EjIevzuJRiRPbVH4mGc8nApb/lVLKVpmUhAaR5R5doKGfAnGJ6Gr3CViAVjP+4FWSxCsybeWQdcgCtbX+7oZug==}
 
+  zod@4.4.3:
+    resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
+
 snapshots:
 
   '@biomejs/biome@2.4.16':
@@ -1730,6 +1743,10 @@ snapshots:
     dependencies:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
+
+  '@ocas/cli-kit@0.2.1':
+    dependencies:
+      zod: 4.4.3
 
   '@rollup/rollup-android-arm-eabi@4.61.0':
     optional: true
@@ -2288,3 +2305,5 @@ snapshots:
       stacktracey: 2.2.0
 
   zod@3.22.3: {}
+
+  zod@4.4.3: {}
