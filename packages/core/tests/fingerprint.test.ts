@@ -94,15 +94,15 @@ describe('readFingerprint / writeFingerprint', () => {
 
   test('F7: round-trip — write then read returns same value', () => {
     const fpPath = join(tmpDir, 'test.fingerprint')
-    writeFingerprint(fpPath, 'abc123')
-    expect(readFingerprint(fpPath)).toBe('abc123')
+    writeFingerprint(fpPath, { hash: 'abc123' })
+    expect(readFingerprint(fpPath)?.hash).toBe('abc123')
   })
 
   test('F8: writeFingerprint creates parent directories', () => {
     const fpPath = join(tmpDir, 'deep', 'nested', 'dir', 'fp')
-    writeFingerprint(fpPath, 'hash')
+    writeFingerprint(fpPath, { hash: 'hash' })
     expect(existsSync(fpPath)).toBe(true)
-    expect(readFingerprint(fpPath)).toBe('hash')
+    expect(readFingerprint(fpPath)?.hash).toBe('hash')
   })
 })
 
@@ -115,8 +115,8 @@ describe('pkgNameToFilename / fingerprintPath', () => {
   test('F-san2: fingerprintPath round-trip for scoped package names (non-build commands)', () => {
     // Test with deploy command (non-build command should still use old .proman path)
     const fpPath = fingerprintPath(tmpDir, 'deploy', '@ocas/core')
-    writeFingerprint(fpPath, 'x')
-    expect(readFingerprint(fpPath)).toBe('x')
+    writeFingerprint(fpPath, { hash: 'x' })
+    expect(readFingerprint(fpPath)?.hash).toBe('x')
     expect(fpPath).toContain('@ocas-core.fingerprint')
   })
 
@@ -293,7 +293,7 @@ describe('Fingerprint storage inside build output (Issue #135)', () => {
 
     // Write fingerprint using new location
     const fpPath = fingerprintPath(pkgDir, 'build', '@test/pkg')
-    writeFingerprint(fpPath, 'abc123')
+    writeFingerprint(fpPath, { hash: 'abc123' })
 
     // Verify it's inside dist folder
     expect(fpPath).toBe(join(pkgDir, 'dist/.build-fingerprint'))
