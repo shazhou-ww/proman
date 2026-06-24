@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.11.0 — 2026-06-24
+
+- Migrate CLI from manual arg parsing to @ocas/cli-kit framework.
+  
+  - Use createCLI() command builder pattern (arg/flag/yields/returns/action)
+  - Zod schema validation for all command outputs
+  - Dual-layer output: stderr NDJSON yields + stdout structured returns
+  - Standard flags: --format yaml|json|text, --compact, --quiet, --json
+  - Structured error envelopes on failure
+
 ## 0.10.0 — 2026-06-15
 
 - feat: add `cards validate`, `cards affected`, and `cards toc` subcommands

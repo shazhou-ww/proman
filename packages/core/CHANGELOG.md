@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.10.1 — 2026-06-24
+
+- Strict build cache validation: verify all output artifacts exist before skipping rebuild.
+  
+  - Fingerprint format upgraded from plain hash to JSON { hash, outputs }
+  - Added listOutputFiles() and isBuildCacheValid() for artifact completeness checks
+  - Fixes #211: single dist artifact missing no longer silently skipped
+
 ## 0.10.0 — 2026-06-15
 
 - feat: add `cards validate`, `cards affected`, and `cards toc` subcommands
