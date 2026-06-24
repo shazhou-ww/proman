@@ -108,7 +108,7 @@ describe('cli-kit integration', () => {
     expect(code).toBe(0)
     const lines = stderr.trim().split('\n').filter(Boolean)
     expect(lines.length).toBeGreaterThan(0)
-    const first = JSON.parse(lines[0]!)
+    const first = JSON.parse(lines[0] ?? '')
     expect(first.type).toBe('@proman/cards/list/yield')
     expect(first.value.id).toBeDefined()
   })

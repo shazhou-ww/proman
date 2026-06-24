@@ -3,7 +3,6 @@ import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createCLI } from '@ocas/cli-kit'
-import { z } from 'zod'
 import {
   build,
   bump,
@@ -24,6 +23,7 @@ import {
   runTests,
   unlink,
 } from '@shazhou/proman-core'
+import { z } from 'zod'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf-8')) as {
@@ -101,11 +101,7 @@ const cardDetailSchema = z.object({
 })
 
 const cardsQueryResultSchema = z.object({
-  result: z.union([
-    z.array(z.string()),
-    cardDetailSchema,
-    z.null(),
-  ]),
+  result: z.union([z.array(z.string()), cardDetailSchema, z.null()]),
 })
 
 const cardsTocSchema = z.object({
