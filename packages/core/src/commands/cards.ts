@@ -428,7 +428,7 @@ export async function cardsAffected(opts: CardsAffectedOptions): Promise<CardsAf
           if (!staleMap.has(cardId)) {
             staleMap.set(cardId, { commits: new Set(), totalCommits: 0 })
           }
-          const entry = staleMap.get(cardId)!
+          const entry = staleMap.get(cardId) ?? { commits: new Set(), totalCommits: 0 }
           entry.commits.add(changedFile)
           entry.totalCommits += commitCount
         }
@@ -443,7 +443,7 @@ export async function cardsAffected(opts: CardsAffectedOptions): Promise<CardsAf
         if (!staleMap.has(cardId)) {
           staleMap.set(cardId, { commits: new Set(), totalCommits: 0 })
         }
-        const entry = staleMap.get(cardId)!
+        const entry = staleMap.get(cardId) ?? { commits: new Set(), totalCommits: 0 }
         entry.commits.add(changedFile)
         entry.totalCommits += commitCount
       }
