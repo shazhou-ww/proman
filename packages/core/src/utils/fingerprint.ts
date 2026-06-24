@@ -104,6 +104,11 @@ export function readFingerprint(path: string): StoredFingerprint | null {
     // v1 JSON format
     const parsed = JSON.parse(raw) as Partial<StoredFingerprint>
     if (typeof parsed.hash !== 'string') return null
+    // Validate outputs: if present, must be array of strings
+    if (parsed.outputs != null) {
+      if (!Array.isArray(parsed.outputs)) return null
+      if (!parsed.outputs.every((f): f is string => typeof f === 'string')) return null
+    }
     return { hash: parsed.hash, outputs: parsed.outputs }
   } catch {
     return null
