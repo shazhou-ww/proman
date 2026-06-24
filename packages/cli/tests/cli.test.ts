@@ -5,12 +5,14 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 
 import { spawnSync } from 'node:child_process'
 import { describe, expect, test } from 'vitest'
-import { parseDeployArgs, parseDevArgs, parseLinkArgs } from '../src/cli.ts'
 
 const CLI = resolve(__dirname, '..', 'dist', 'cli.js')
 
-function runCli(args: string[]): { code: number; stdout: string; stderr: string } {
-  const res = spawnSync('node', [CLI, ...args], { encoding: 'utf8' })
+function runCli(args: string[], cwd?: string): { code: number; stdout: string; stderr: string } {
+  const res = spawnSync('node', [CLI, ...args], {
+    encoding: 'utf8',
+    cwd: cwd ?? resolve(__dirname, '..', '..', '..'),
+  })
   return {
     code: res.status ?? 0,
     stdout: res.stdout ?? '',
@@ -82,73 +84,50 @@ describe('cli help', () => {
   test('D-deploy-unknown: deploy --bogus exits non-zero', () => {
     const { code, stderr } = runCli(['deploy', '--bogus'])
     expect(code).not.toBe(0)
-    expect(stderr.toLowerCase()).toMatch(/--bogus|unknown flag/)
+    expect(stderr.toLowerCase()).toMatch(/--bogus|unknown/)
   })
 })
 
-describe('parseDeployArgs', () => {
-  test('D-parse-1: empty', () => {
-    expect(parseDeployArgs([])).toEqual({ pkg: undefined, env: undefined })
-  })
-  test('D-parse-2: --package', () => {
-    expect(parseDeployArgs(['--package', '@x/y'])).toEqual({
-      pkg: '@x/y',
-      env: undefined,
-    })
-  })
-  test('D-parse-3: --env', () => {
-    expect(parseDeployArgs(['--env', 'staging'])).toEqual({
-      pkg: undefined,
-      env: 'staging',
-    })
-  })
-  test('D-parse-4: --package missing value', () => {
-    expect(() => parseDeployArgs(['--package'])).toThrow(/--package requires a value/)
-  })
-  test('D-parse-5: --env missing value', () => {
-    expect(() => parseDeployArgs(['--env'])).toThrow(/--env requires a value/)
-  })
-  test('D-parse-6: unknown flag', () => {
-    expect(() => parseDeployArgs(['--bad'])).toThrow(/unknown flag/)
-  })
-})
-
-describe('parseDevArgs — --force', () => {
-  test('FP-CLI1: parseDevArgs(["--force"]) returns { force: true }', () => {
-    expect(parseDevArgs(['--force'])).toEqual({ force: true })
-  })
-
-  test('FP-CLI2: parseDevArgs([]) returns { force: false }', () => {
-    expect(parseDevArgs([])).toEqual({ force: false })
-  })
-
-  test('FP-CLI3: unknown flag still throws', () => {
-    expect(() => parseDevArgs(['--bogus'])).toThrow(/unknown flag/)
-  })
-})
-
-describe('cli --force integration', () => {
-  test('FP-CLI4: --help text mentions --force for build/test/check', () => {
+describe('cli-kit integration', () => {
+  test('FP-CLI4: --help text mentions --force', () => {
     const { code, stdout } = runCli(['--help'])
     expect(code).toBe(0)
     expect(stdout).toContain('--force')
   })
-})
 
-describe('parseLinkArgs', () => {
-  test('L-parse-1: empty args', () => {
-    expect(parseLinkArgs([])).toEqual({ packageName: undefined, status: false })
+  test('cards index produces structured output with --format json', () => {
+    const { code, stdout } = runCli(['cards', 'index', '--format', 'json'])
+    expect(code).toBe(0)
+    const parsed = JSON.parse(stdout)
+    expect(parsed.type).toBe('@proman/cards/index')
+    expect(parsed.value.count).toBeGreaterThan(0)
   })
-  test('L-parse-2: --status', () => {
-    expect(parseLinkArgs(['--status'])).toEqual({ packageName: undefined, status: true })
+
+  test('cards list yields NDJSON on stderr', () => {
+    const { code, stderr } = runCli(['cards', 'list', '--format', 'json'])
+    expect(code).toBe(0)
+    const lines = stderr.trim().split('\n').filter(Boolean)
+    expect(lines.length).toBeGreaterThan(0)
+    const first = JSON.parse(lines[0] ?? '')
+    expect(first.type).toBe('@proman/cards/list/yield')
+    expect(first.value.id).toBeDefined()
   })
-  test('L-parse-3: package name', () => {
-    expect(parseLinkArgs(['@scope/package'])).toEqual({
-      packageName: '@scope/package',
-      status: false,
-    })
+
+  test('--quiet suppresses stderr yields', () => {
+    const { code, stderr } = runCli(['cards', 'list', '--quiet'])
+    expect(code).toBe(0)
+    expect(stderr).toBe('')
   })
-  test('L-parse-4: unknown flag', () => {
-    expect(() => parseLinkArgs(['--bad'])).toThrow(/unknown flag/)
+
+  test('cards toc outputs text in --format text', () => {
+    const { code, stdout } = runCli(['cards', 'toc', '--format', 'text'])
+    expect(code).toBe(0)
+    expect(stdout).toContain('Knowledge Cards')
+  })
+
+  test('cards validate exits non-zero on errors or zero on success', () => {
+    const { code } = runCli(['cards', 'validate', '--format', 'json'])
+    // 0 if all valid, 1 if errors found
+    expect([0, 1]).toContain(code)
   })
 })

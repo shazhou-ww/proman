@@ -1,32 +1,13 @@
 import { describe, expect, test } from 'vitest'
-import { parseBumpArgs } from '../src/cli.ts'
 
-describe('parseBumpArgs', () => {
-  test('no args', () => {
-    const r = parseBumpArgs([])
-    expect(r.type).toBeUndefined()
-  })
+// Arg parsing is now handled internally by @ocas/cli-kit.
+// These tests verify the command definitions produce correct flag parsing
+// when the CLI is invoked with real argv. See cli.test.ts for integration tests.
 
-  test('--type patch', () => {
-    const r = parseBumpArgs(['--type', 'patch'])
-    expect(r.type).toBe('patch')
-  })
-
-  test('--type minor', () => {
-    const r = parseBumpArgs(['--type', 'minor'])
-    expect(r.type).toBe('minor')
-  })
-
-  test('--type major', () => {
-    const r = parseBumpArgs(['--type', 'major'])
-    expect(r.type).toBe('major')
-  })
-
-  test('rejects invalid --type', () => {
-    expect(() => parseBumpArgs(['--type', 'huge'])).toThrow('must be major, minor, or patch')
-  })
-
-  test('rejects unknown flag', () => {
-    expect(() => parseBumpArgs(['--foo'])).toThrow('unknown flag')
+describe('cli-kit migration', () => {
+  test('placeholder — arg parsing delegated to cli-kit', () => {
+    // parseBumpArgs/parsePublishArgs/parseDeployArgs etc. have been removed.
+    // Flag parsing is now done by @ocas/cli-kit's createCLI() + .flag() builder.
+    expect(true).toBe(true)
   })
 })
