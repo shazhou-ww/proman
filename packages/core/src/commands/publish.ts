@@ -155,13 +155,23 @@ export async function publish(opts: PublishOptions = {}): Promise<void> {
 
   // Commit + tag + push all publishable packages
   // Changelog generation and changeset cleanup are now bump's responsibility (issue #74)
-  await git.addAll()
-
   const tagPrefix = cfg.release?.gitTagPrefix ?? 'v'
   const bumpedVersions = Object.entries(versions)
 
-  const commitVersion = bumpedVersions[0]?.[1] ?? 'unknown'
-  await git.commit(`release: v${commitVersion}`, AUTHOR)
+  // The release-commit is skipped when the working tree is already clean.
+  // In the uwf split-role release workflow the `bumper` role commits + merges
+  // the version bump via release PR *before* `publish` runs, so by the time we
+  // get here there is nothing left to commit. Forcing a commit then fails with
+  // "nothing to commit" and — fatally — aborts before the tag step, leaving the
+  // npm publish (irreversible, already done above) without a git tag. Guarding
+  // on isCleanTree() makes the commit best-effort while tags/push always run.
+  await git.addAll()
+  if (await git.isCleanTree()) {
+    console.log('⏭ skipped release commit (working tree clean — bump already committed)')
+  } else {
+    const commitVersion = bumpedVersions[0]?.[1] ?? 'unknown'
+    await git.commit(`release: v${commitVersion}`, AUTHOR)
+  }
 
   for (const [pkgName, version] of bumpedVersions) {
     const tagName = `${pkgName}@${tagPrefix}${version}`

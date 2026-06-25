@@ -409,9 +409,11 @@ describe('changelog', () => {
 // ── Git operations ──
 
 describe('git operations', () => {
-  test('commits with author, tags, pushes', async () => {
+  test('commits with author when tree has changes, then tags + pushes', async () => {
     await setupFixture(tmp, { version: '0.3.0' })
-    const { git, calls, getAuthor } = makeGit()
+    // Simulate a dirty tree (e.g. standalone `proman publish` that also bumped):
+    // commit SHOULD run.
+    const { git, calls, getAuthor } = makeGit({ isCleanTree: async () => false })
     const { npm } = makeNpm()
     await publish({ cwd: tmp, git, npm })
 
@@ -421,6 +423,25 @@ describe('git operations', () => {
     expect(calls).toContain('pushTags')
     expect(calls).toContain('push main')
     expect(getAuthor()).toBe('小橘 <xiaoju@shazhou.work>')
+  })
+
+  test('skips release commit when tree is clean but still tags + pushes', async () => {
+    // Regression (ocas @ocas/cli-kit@0.3.0, 2026-06-25): in the uwf split-role
+    // release workflow the bumper commits + merges the bump before publish runs,
+    // so the tree is clean here. The old code force-committed → "nothing to
+    // commit" → aborted before tagging, leaving npm publish without a git tag.
+    await setupFixture(tmp, { version: '0.3.0' })
+    const { git, calls } = makeGit({ isCleanTree: async () => true })
+    const { npm } = makeNpm()
+    await publish({ cwd: tmp, git, npm })
+
+    expect(calls).toContain('add')
+    // No release commit because the tree was clean…
+    expect(calls.some((c) => c.startsWith('commit '))).toBe(false)
+    // …but tagging + push MUST still happen.
+    expect(calls).toContain('tag @test/core@v0.3.0')
+    expect(calls).toContain('pushTags')
+    expect(calls).toContain('push main')
   })
 
   test('custom git tag prefix', async () => {
@@ -574,7 +595,9 @@ describe('smoke test tarball', () => {
     parsed.bin = { testcli: './dist/cli.js' }
     await writeFile(pkgJsonPath, JSON.stringify(parsed, null, 2))
 
-    const { git, calls } = makeGit()
+    // Dirty tree so the full git chain (including the release commit) runs —
+    // this test's intent is "smoke success doesn't block git ops".
+    const { git, calls } = makeGit({ isCleanTree: async () => false })
     const { npm } = makeNpm()
 
     const mockSpawn = async (argv: string[]) => {
