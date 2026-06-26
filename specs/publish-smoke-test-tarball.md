@@ -14,8 +14,11 @@ tags: [npm, smoke-test, tarball, validation, fallback]
 
 ## Then
 - Before `pnpm publish`, proman runs `pnpm pack` to create the tarball
-- The tarball is extracted to a temporary directory
+- The tarball is extracted to a temporary directory (`package/` subdir)
+- Workspace dependencies (if any) are symlinked into the extracted `node_modules`
+- proman runs `pnpm install --prod` in the extracted `package/` directory to install
+  external runtime dependencies before executing the bin
 - For each `bin` entry, proman executes `node <bin-path> --version` in the extracted directory
 - If the bin command exits with code 0, the smoke test passes
-- The temporary directory is cleaned up
+- The temporary directory and the tarball are cleaned up
 - Publishing proceeds to `npm publish`
