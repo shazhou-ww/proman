@@ -5,7 +5,7 @@ sources:
   - packages/core/src/utils/smoke-test.ts
 tags: [proman]
 created: 2026-06-15
-updated: 2026-06-15
+updated: 2026-06-26
 ---
 
 # Smoke Test Mechanism
@@ -35,7 +35,7 @@ The default strategy for CLI packages validates that the packaged binary actuall
 ### Steps
 
 ```
-pnpm pack → tar extract → symlink workspace deps → node <bin> --version → cleanup
+pnpm pack → tar extract → symlink workspace deps → pnpm install --prod → node <bin> --version → cleanup
 ```
 
 1. **Pack** — `pnpm pack` creates a `.tgz` tarball in the package directory. The filename is extracted from stdout via regex (`/[\w@.-]+\.tgz/`).
@@ -48,9 +48,11 @@ pnpm pack → tar extract → symlink workspace deps → node <bin> --version �
    ```
    Handles scoped packages by creating the `@scope/` parent directory. This allows bin commands to resolve workspace imports without running `npm install`.
 
-4. **Run bin entries** — each `bin` entry is executed with `node <path> --version`. The test passes if all exit with code 0.
+4. **Install production dependencies** — `pnpm install --prod` runs in the extracted `package/` directory. Workspace deps are already symlinked, but external (registry) dependencies such as `@ocas/cli-kit`, `zod`, `yaml`, and `liquidjs` are **not** in the tarball. Without this step the bin fails at runtime with `ERR_MODULE_NOT_FOUND` (issue #217). pnpm is used (not `npm`), and `--prod` installs only `dependencies` (devDependencies skipped). A non-zero exit aborts the smoke test before any bin runs, with an error matching the existing `pnpm pack failed: …` / `tar extract failed: …` pattern.
 
-5. **Cleanup** — always runs (in `finally` block): removes both the temp directory and the tarball file.
+5. **Run bin entries** — each `bin` entry is executed with `node <path> --version`. The test passes if all exit with code 0.
+
+6. **Cleanup** — always runs (in `finally` block): removes both the temp directory and the tarball file. This runs even if `pnpm install --prod` or a bin command fails.
 
 ## Bin Entry Normalization
 

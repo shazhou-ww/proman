@@ -132,7 +132,17 @@ export async function smokeTestTarball(
       }
     }
 
-    // Step 4: Test each bin entry
+    // Step 4: Install production dependencies into the extracted dir.
+    // Workspace deps are symlinked above; external (registry) deps such as
+    // '@ocas/cli-kit' are NOT in the tarball, so without this the bin would
+    // fail at runtime with ERR_MODULE_NOT_FOUND. Use pnpm (not npm) and
+    // --prod so only `dependencies` are installed (devDependencies skipped).
+    const installResult = await spawn(['pnpm', 'install', '--prod'], extractedPkgDir)
+    if (installResult.code !== 0) {
+      throw new Error(`pnpm install --prod failed: ${installResult.stderr || installResult.stdout}`)
+    }
+
+    // Step 5: Test each bin entry
     for (const [binName, binPath] of Object.entries(binEntries)) {
       const binFullPath = join(extractedPkgDir, binPath)
       const binTestResult = await spawn(['node', binFullPath, '--version'], extractedPkgDir)
@@ -145,7 +155,7 @@ export async function smokeTestTarball(
       }
     }
   } finally {
-    // Step 5: Always clean up temp directory and tarball
+    // Step 6: Always clean up temp directory and tarball
     await rm(testDir, { recursive: true, force: true })
     await rm(join(pkgDir, tarballName), { force: true })
   }
