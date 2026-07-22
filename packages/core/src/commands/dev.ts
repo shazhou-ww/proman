@@ -1,4 +1,5 @@
 import { chmodSync, existsSync, readdirSync, readFileSync, rmSync } from 'node:fs'
+import { cpus } from 'node:os'
 import { join, resolve } from 'node:path'
 import { loadConfig } from '../config/index.js'
 import {
@@ -20,6 +21,8 @@ export type DevCommandOptions = {
    *  - true: always run (--force / CI)
    *  - undefined: legacy behavior — always run, no fingerprint logic */
   force?: boolean
+  /** Max packages to run in parallel (test only). Defaults to CPU count. */
+  concurrency?: number
 }
 
 function pnpmExec(bin: string, ...args: string[]): string[] {
@@ -132,8 +135,10 @@ function chmodBinEntries(pkgDir: string): void {
 export async function runTests(opts: DevCommandOptions): Promise<void> {
   const spawn = opts.spawn ?? defaultSpawn
   const cwd = resolve(opts.cwd)
+  const cfg = loadConfig(cwd)
   const useFingerprint = opts.force !== undefined
   const force = opts.force ?? false
+  const concurrency = opts.concurrency ?? cpus().length
 
   if (useFingerprint) {
     const fpPath = fingerprintPath(cwd, 'test')
@@ -147,10 +152,71 @@ export async function runTests(opts: DevCommandOptions): Promise<void> {
       }
     }
 
-    await runOrThrow(spawn, pnpmExec('vitest', 'run'), cwd)
+    await runTestsPerPackage(spawn, cwd, cfg.packages, concurrency)
     writeFingerprint(fpPath, { hash: fpValue })
   } else {
+    await runTestsPerPackage(spawn, cwd, cfg.packages, concurrency)
+  }
+}
+
+async function runTestsPerPackage(
+  spawn: SpawnFn,
+  cwd: string,
+  packages: { name: string; path: string }[],
+  concurrency: number,
+): Promise<void> {
+  // Filter to packages that have a test script or vitest config
+  const testable = packages.filter((pkg) => {
+    const pkgDir = resolve(cwd, pkg.path)
+    const pkgJsonPath = join(pkgDir, 'package.json')
+    if (!existsSync(pkgJsonPath)) return false
+    const pkgJson = JSON.parse(readFileSync(pkgJsonPath, 'utf-8'))
+    // Has test script or vitest config
+    return (
+      pkgJson.scripts?.test != null ||
+      pkgJson.scripts?.['test:ci'] != null ||
+      existsSync(join(pkgDir, 'vitest.config.ts'))
+    )
+  })
+
+  // Fallback: no testable packages → run vitest at root (workspace mode)
+  if (testable.length === 0) {
     await runOrThrow(spawn, pnpmExec('vitest', 'run'), cwd)
+    return
+  }
+
+  if (concurrency <= 1) {
+    // Sequential execution
+    for (const pkg of testable) {
+      const pkgDir = resolve(cwd, pkg.path)
+      await runOrThrow(spawn, pnpmExec('vitest', 'run'), pkgDir)
+    }
+  } else {
+    // Parallel execution with concurrency limit
+    const queue = [...testable]
+    const running: Promise<void>[] = []
+    const errors: Error[] = []
+
+    async function next(): Promise<void> {
+      while (queue.length > 0) {
+        const pkg = queue.shift()!
+        const pkgDir = resolve(cwd, pkg.path)
+        try {
+          await runOrThrow(spawn, pnpmExec('vitest', 'run'), pkgDir)
+        } catch (err) {
+          errors.push(err as Error)
+        }
+      }
+    }
+
+    for (let i = 0; i < Math.min(concurrency, testable.length); i++) {
+      running.push(next())
+    }
+    await Promise.all(running)
+
+    if (errors.length > 0) {
+      throw errors[0]
+    }
   }
 }
 
