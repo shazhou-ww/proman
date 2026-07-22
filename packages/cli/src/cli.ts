@@ -215,14 +215,16 @@ cli
     return undefined
   })
 
-// test [--force]
+// test [--force] [--concurrency <n>]
 cli
   .command('test')
   .flag('force', { type: 'boolean' })
+  .flag('concurrency', { type: 'string' })
   .returns(okSchema, '')
   .action(async (_args, flags) => {
     const isCI = process.env.CI === 'true' || process.env.CI === '1'
-    await runTests({ cwd: process.cwd(), force: isCI || Boolean(flags.force) })
+    const concurrency = flags.concurrency ? Number(flags.concurrency) : undefined
+    await runTests({ cwd: process.cwd(), force: isCI || Boolean(flags.force), concurrency })
     return undefined
   })
 
