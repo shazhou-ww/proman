@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.11.0 — 2026-07-22
+
+- feat(core): run vitest per-package in package cwd + add --concurrency option
+  
+  - `runTests` now iterates packages and runs vitest inside each package directory
+  - Falls back to root-level vitest if no packages have test scripts or vitest.config.ts
+  - Add `concurrency` option (defaults to CPU count)
+  - CLI: `proman test --concurrency 1` for serial execution
+
 ## 0.10.3 — 2026-06-26
 
 - fix(publish): install production dependencies before running bin in tarball smoke test

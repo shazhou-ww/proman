@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.12.0 — 2026-07-22
+
+- feat(core): run vitest per-package in package cwd + add --concurrency option
+  
+  - `runTests` now iterates packages and runs vitest inside each package directory
+  - Falls back to root-level vitest if no packages have test scripts or vitest.config.ts
+  - Add `concurrency` option (defaults to CPU count)
+  - CLI: `proman test --concurrency 1` for serial execution
+
 ## 0.11.1 — 2026-06-25
 
 - Fix `proman publish` aborting before the git tag step when the working tree is already clean.

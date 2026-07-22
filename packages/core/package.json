@@ -1,6 +1,6 @@
 {
   "name": "@shazhou/proman-core",
-  "version": "0.10.3",
+  "version": "0.11.0",
   "type": "module",
   "description": "Core library for TypeScript monorepo management",
   "keywords": [
